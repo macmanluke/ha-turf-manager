@@ -829,15 +829,20 @@ async def test_no_fallback_comparison_without_a_fallback_sensor(
 ZONE_SWITCH = "input_boolean.sprinkler_front"
 
 
-async def _add_zone(hass: HomeAssistant, entry: MockConfigEntry, name: str = "Front sprinklers") -> str:
+async def _add_zone(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    name: str = "Front sprinklers",
+    switch: str | None = ZONE_SWITCH,
+) -> str:
     lawn_id = next(sid for sid, s in entry.subentries.items() if s.subentry_type == "lawn")
     flows = hass.config_entries.subentries
     result = await flows.async_init((entry.entry_id, "irrigation_zone"), context={"source": "user"})
     _render(result)
-    result = await flows.async_configure(
-        result["flow_id"],
-        {CONF_NAME: name, "switch_entity": ZONE_SWITCH, "lawn": lawn_id, "min_run_seconds": 60},
-    )
+    data = {CONF_NAME: name, "lawn": lawn_id, "min_run_seconds": 60}
+    if switch:
+        data["switch_entity"] = switch
+    result = await flows.async_configure(result["flow_id"], data)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done(wait_background_tasks=True)
     return next(sid for sid, s in entry.subentries.items() if s.title == name)
@@ -875,7 +880,14 @@ async def test_sprinkler_runs_are_recorded(recorder_mock: Any, hass: HomeAssista
     assert hass.states.get(f"sensor.{LAWN}_last_watered").attributes["zone"] == "Front sprinklers"
     total = hass.states.get(f"sensor.{LAWN}_watering_last_7_days")
     assert float(total.state) == 25.0
-    assert total.attributes["zones"] == [{"name": "Front sprinklers", "entity_id": ZONE_SWITCH}]
+    assert total.attributes["zones"] == [
+        {
+            "name": "Front sprinklers",
+            "entity_id": ZONE_SWITCH,
+            "minutes_entity": f"sensor.{LAWN}_front_sprinklers_last_7_days",
+            "last_run_entity": f"sensor.{LAWN}_front_sprinklers_last_run",
+        }
+    ]
     assert total.attributes["by_zone"] == {"Front sprinklers": 25.0}
     assert float(hass.states.get(f"sensor.{LAWN}_front_sprinklers_last_7_days").state) == 25.0
     assert hass.states.get(f"sensor.{LAWN}_front_sprinklers_last_run").state not in ("unknown", "unavailable")
@@ -1001,3 +1013,51 @@ async def test_zone_needs_a_lawn(recorder_mock: Any, hass: HomeAssistant) -> Non
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "no_lawns"
+
+
+
+async def test_two_zones_on_one_lawn_are_tracked_separately(
+    recorder_mock: Any, hass: HomeAssistant, freezer: Any
+) -> None:
+    """A sprinkler zone and a hand-watered zone (no switch) keep their own minutes."""
+    hass.states.async_set(ZONE_SWITCH, "off")
+    entry = await _setup(hass)
+    sprinkler_id = await _add_zone(hass, entry, "Front sprinklers")
+    hose_id = await _add_zone(hass, entry, "Back hose", switch=None)
+    assert "switch_entity" not in entry.subentries[hose_id].data
+
+    hass.states.async_set(ZONE_SWITCH, "on")
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=30))
+    hass.states.async_set(ZONE_SWITCH, "off")
+    await hass.async_block_till_done()
+
+    # Hand watering, logged against the hose zone with the dashboard's zone picker.
+    zone_select = f"select.{LAWN}_watering_zone"
+    assert hass.states.get(zone_select).attributes["options"] == ["Whole lawn", "Back hose", "Front sprinklers"]
+    await hass.services.async_call(
+        "select", "select_option", {"entity_id": zone_select, "option": "Back hose"}, blocking=True
+    )
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": f"number.{LAWN}_watering_minutes", "value": 12}, blocking=True
+    )
+    await hass.services.async_call("button", "press", {"entity_id": f"button.{LAWN}_log_watering"}, blocking=True)
+    await hass.async_block_till_done()
+
+    assert float(hass.states.get(f"sensor.{LAWN}_front_sprinklers_last_7_days").state) == 30.0
+    assert float(hass.states.get(f"sensor.{LAWN}_back_hose_last_7_days").state) == 12.0
+    total = hass.states.get(f"sensor.{LAWN}_watering_last_7_days")
+    assert float(total.state) == 42.0
+    assert total.attributes["by_zone"] == {"Back hose": 12.0, "Front sprinklers": 30.0}
+    assert [r["summary"] for r in await _history(hass)] == [
+        "Watered 30 min (Front sprinklers)",
+        "Watered 12 min (Back hose)",
+    ]
+
+    # The dashboard gets each zone's switch (none for the hose) and its own sensors.
+    zones = {z["name"]: z for z in total.attributes["zones"]}
+    assert zones["Back hose"]["entity_id"] is None
+    assert zones["Front sprinklers"]["entity_id"] == ZONE_SWITCH
+    assert zones["Front sprinklers"]["minutes_entity"] == f"sensor.{LAWN}_front_sprinklers_last_7_days"
+    assert zones["Back hose"]["last_run_entity"] == f"sensor.{LAWN}_back_hose_last_run"
+    assert sprinkler_id != hose_id

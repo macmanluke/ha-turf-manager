@@ -78,7 +78,7 @@ class IrrigationZone:
 
     id: str
     name: str
-    entity_id: str
+    entity_id: str | None  # None for a zone watered by hand (no switch)
     lawn_id: str
     min_run_s: int
 
@@ -88,7 +88,7 @@ class IrrigationZone:
         return cls(
             id=subentry.subentry_id,
             name=subentry.title,
-            entity_id=data[CONF_ZONE_ENTITY],
+            entity_id=data.get(CONF_ZONE_ENTITY) or None,
             lawn_id=data[CONF_ZONE_LAWN],
             min_run_s=int(data.get(CONF_MIN_RUN, DEFAULT_MIN_RUN)),
         )

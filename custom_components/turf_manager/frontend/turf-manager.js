@@ -231,19 +231,34 @@ function weatherCards(hass, e) {
   return cards.length ? [heading("Weather", "mdi:weather-partly-cloudy"), ...cards] : [];
 }
 
-/** Watering: last watered, 7-day total, a toggle per sprinkler zone, and logging by hand. */
+/**
+ * Watering: last watered and the total, then a row per zone (its on/off tile, or when a
+ * hand-watered zone was last watered, beside that zone's own 7-day minutes), then a form
+ * to log watering by hand against a zone.
+ */
 function irrigationCards(hass, e) {
   const total = e["sensor:watering_7d"];
   const totalState = total ? hass.states[total] : null;
   const zones = (totalState && totalState.attributes && totalState.attributes.zones) || [];
+  const exists = (entityId) => Boolean(entityId) && entityId in hass.states;
+  const zoneRows = zones.flatMap((zone) => [
+    exists(zone.entity_id)
+      ? tile(zone.entity_id, zone.name, {
+          tap_action: { action: "toggle" },
+          state_content: ["state", "last_changed"],
+        })
+      : exists(zone.last_run_entity)
+        ? tile(zone.last_run_entity, `${zone.name}, last watered`)
+        : null,
+    exists(zone.minutes_entity) ? tile(zone.minutes_entity, `${zone.name}, 7 days`) : null,
+  ]);
   const cards = [
     tile(e["sensor:last_watered"], "Last watered"),
-    tile(total, "Last 7 days"),
-    ...zones
-      .filter((zone) => zone.entity_id in hass.states)
-      .map((zone) => tile(zone.entity_id, zone.name, { tap_action: { action: "toggle" } })),
+    tile(total, zones.length ? "All zones, 7 days" : "Last 7 days"),
+    ...zoneRows,
     form([
       row(e["date:log_date"], "Date"),
+      zones.length ? row(e["select:watering_zone"], "Zone") : null,
       row(e["number:watering_minutes"], "Minutes"),
       logRow(e["button:log_watering"], "Log watering by hand"),
     ]),

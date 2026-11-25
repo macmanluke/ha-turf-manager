@@ -191,7 +191,8 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
                 self.hass, self._async_midnight, hour=0, minute=minute, second=5
             )
         )
-        if zones := self.zones():
+        # Only zones with a switch are watched; manual zones are logged by hand.
+        if zones := {zid: z for zid, z in self.zones().items() if z.entity_id}:
             self._async_init_running(zones)
             self.config_entry.async_on_unload(
                 async_track_state_change_event(
@@ -250,6 +251,8 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
         """Record completed runs from recorder history that aren't logged yet."""
         since = dt_util.now() - IRRIGATION_BACKFILL
         for zone in self.zones().values():
+            if not zone.entity_id:
+                continue
             try:
                 states = await async_entity_history(self.hass, zone.entity_id, since)
             except HomeAssistantError as err:

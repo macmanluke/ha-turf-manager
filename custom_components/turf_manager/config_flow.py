@@ -485,9 +485,9 @@ class IrrigationZoneSubentryFlow(ConfigSubentryFlow):
         return vol.Schema(
             {
                 vol.Required(CONF_NAME, default=values.get(CONF_NAME, vol.UNDEFINED)): TextSelector(),
-                vol.Required(
-                    CONF_ZONE_ENTITY, default=values.get(CONF_ZONE_ENTITY, vol.UNDEFINED)
-                ): EntitySelector(EntitySelectorConfig(domain=["switch", "valve", "input_boolean"])),
+                _opt(CONF_ZONE_ENTITY, values): EntitySelector(
+                    EntitySelectorConfig(domain=["switch", "valve", "input_boolean"])
+                ),
                 vol.Required(
                     CONF_ZONE_LAWN, default=values.get(CONF_ZONE_LAWN, lawns[0]["value"])
                 ): SelectSelector(SelectSelectorConfig(options=lawns, mode=SelectSelectorMode.DROPDOWN)),
@@ -499,8 +499,10 @@ class IrrigationZoneSubentryFlow(ConfigSubentryFlow):
 
 
 def _zone_data(user_input: dict[str, Any]) -> dict[str, Any]:
-    return {
-        CONF_ZONE_ENTITY: user_input[CONF_ZONE_ENTITY],
+    data = {
         CONF_ZONE_LAWN: user_input[CONF_ZONE_LAWN],
         CONF_MIN_RUN: int(user_input[CONF_MIN_RUN]),
     }
+    if user_input.get(CONF_ZONE_ENTITY):
+        data[CONF_ZONE_ENTITY] = user_input[CONF_ZONE_ENTITY]
+    return data

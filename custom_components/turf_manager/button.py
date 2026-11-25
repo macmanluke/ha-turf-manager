@@ -93,6 +93,7 @@ class LogButton(TurfLawnEntity, ButtonEntity):
                 self._lawn_id,
                 minutes=staged.get("watering_minutes") or 15,
                 when=coordinator.log_when(self._lawn_id),
+                zone=coordinator.zones().get(staged.get("watering_zone_id") or ""),
             )
         elif self._key == "log_activity":
             await coordinator.async_log_activity(

@@ -19,6 +19,9 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
 
   states["weather.home"] = { entity_id: "weather.home", state: "sunny", attributes: {} };
   states["switch.front_zone"] = { entity_id: "switch.front_zone", state: "off", attributes: {} };
+  for (const id of ["sensor.front_sprinklers_7d", "sensor.front_sprinklers_last", "sensor.back_hose_7d", "sensor.back_hose_last"]) {
+    states[id] = { entity_id: id, state: "1", attributes: {} };
+  }
 
   for (const device of lawns) {
     const id = (domain, key) => `${domain}.lawn_${device}_${key}`;
@@ -37,10 +40,21 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
     add(id("sensor", "watering_7d"), device, "watering_7d", {
       attributes: {
         zones: device === "front"
-          ? [{ name: "Front sprinklers", entity_id: "switch.front_zone" }, { name: "Gone", entity_id: "switch.removed" }]
+          ? [
+              {
+                name: "Front sprinklers", entity_id: "switch.front_zone",
+                minutes_entity: "sensor.front_sprinklers_7d", last_run_entity: "sensor.front_sprinklers_last",
+              },
+              {
+                name: "Back hose", entity_id: null,
+                minutes_entity: "sensor.back_hose_7d", last_run_entity: "sensor.back_hose_last",
+              },
+              { name: "Gone", entity_id: "switch.removed", minutes_entity: null, last_run_entity: null },
+            ]
           : [],
       },
     });
+    add(id("select", "watering_zone"), device, "watering_zone");
     add(id("number", "watering_minutes"), device, "watering_minutes");
     add(id("button", "log_watering"), device, "log_watering");
     add(id("sensor", "mean_temperature_today"), device, "mean_temperature_today", {
@@ -166,7 +180,7 @@ assert.deepEqual(
   renovation.filter((c) => c.type === "heading").map((c) => c.heading),
   ["Renovation", "Irrigation", "Weather"],
 );
-// Irrigation: last watered, 7-day total, a toggle tile per existing zone, then the by-hand form.
+// Irrigation: last watered, the total, then a row per zone, then the by-hand form with a zone picker.
 const irrigationStart = renovation.findIndex((c) => c.heading === "Irrigation");
 const weatherStart = renovation.findIndex((c) => c.heading === "Weather");
 const irrigation = renovation.slice(irrigationStart + 1, weatherStart);
@@ -174,22 +188,31 @@ assert.deepEqual(
   irrigation.filter((c) => c.type === "tile").map((c) => [c.entity, c.name]),
   [
     ["sensor.lawn_front_last_watered", "Last watered"],
-    ["sensor.lawn_front_watering_7d", "Last 7 days"],
+    ["sensor.lawn_front_watering_7d", "All zones, 7 days"],
     ["switch.front_zone", "Front sprinklers"],
+    ["sensor.front_sprinklers_7d", "Front sprinklers, 7 days"],
+    ["sensor.back_hose_last", "Back hose, last watered"],
+    ["sensor.back_hose_7d", "Back hose, 7 days"],
   ],
-  "zones whose entity no longer exists are left out",
+  "a zone whose entities no longer exist is left out",
 );
-assert.deepEqual(
-  irrigation.find((c) => c.entity === "switch.front_zone").tap_action,
-  { action: "toggle" },
-);
+const zoneToggle = irrigation.find((c) => c.entity === "switch.front_zone");
+assert.deepEqual(zoneToggle.tap_action, { action: "toggle" });
+assert.deepEqual(zoneToggle.state_content, ["state", "last_changed"]);
 assert.deepEqual(
   irrigation.find((c) => c.type === "entities").entities,
   [
     { entity: "date.lawn_front_log_date", name: "Date" },
+    { entity: "select.lawn_front_watering_zone", name: "Zone" },
     { entity: "number.lawn_front_watering_minutes", name: "Minutes" },
     { entity: "button.lawn_front_log_watering", name: "Log watering by hand", action_name: "Log" },
   ],
+);
+// A lawn with no zones: just the total (as "Last 7 days") and a form without a zone picker.
+const backIrrigation = config.views[0].sections[2].cards;
+assert.ok(backIrrigation.some((c) => c.type === "tile" && c.name === "Last 7 days"));
+assert.ok(
+  !backIrrigation.some((c) => c.type === "entities" && c.entities.some((r) => r.name === "Zone")),
 );
 assert.equal(renovation.find((c) => c.type === "weather-forecast").entity, "weather.home");
 assert.deepEqual(

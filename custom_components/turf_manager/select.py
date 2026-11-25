@@ -35,6 +35,7 @@ async def async_setup_entry(
                 ProductSelect(coordinator, subentry_id),
                 StagedOptionSelect(coordinator, subentry_id, "mower_type", MOWER_TYPES),
                 StagedOptionSelect(coordinator, subentry_id, "activity", ACTIVITY_TYPES),
+                WateringZoneSelect(coordinator, subentry_id),
             ],
             config_subentry_id=subentry_id,
         )
@@ -135,4 +136,44 @@ class StagedOptionSelect(TurfLawnEntity, SelectEntity, RestoreEntity):
 
     async def async_select_option(self, option: str) -> None:
         self.staged[self._key] = option
+        self.async_write_ha_state()
+
+
+WHOLE_LAWN = "Whole lawn"
+
+
+class WateringZoneSelect(TurfLawnEntity, SelectEntity, RestoreEntity):
+    """Which zone the 'Log watering' button records against (or the whole lawn)."""
+
+    def __init__(self, coordinator: TurfCoordinator, lawn_id: str) -> None:
+        super().__init__(coordinator, lawn_id, "watering_zone")
+
+    def _zones(self) -> list:
+        return sorted(
+            (z for z in self.coordinator.zones().values() if z.lawn_id == self._lawn_id),
+            key=lambda z: z.name.casefold(),
+        )
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if "watering_zone_id" in self.staged:
+            return
+        zone_id = None
+        if last := await self.async_get_last_state():
+            zone_id = next((z.id for z in self._zones() if z.name == last.state), None)
+        self.staged["watering_zone_id"] = zone_id
+
+    @property
+    def options(self) -> list[str]:
+        return [WHOLE_LAWN, *(z.name for z in self._zones())]
+
+    @property
+    def current_option(self) -> str:
+        zone_id = self.staged.get("watering_zone_id")
+        return next((z.name for z in self._zones() if z.id == zone_id), WHOLE_LAWN)
+
+    async def async_select_option(self, option: str) -> None:
+        self.staged["watering_zone_id"] = next(
+            (z.id for z in self._zones() if z.name == option), None
+        )
         self.async_write_ha_state()

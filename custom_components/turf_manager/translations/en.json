@@ -188,7 +188,7 @@
             "min_run_seconds": "Ignore runs shorter than"
           },
           "data_description": {
-            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself.",
+            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself. Leave empty for an area you water by hand.",
             "lawn": "The lawn this zone waters.",
             "min_run_seconds": "Shorter runs, such as tests, aren't recorded."
           }
@@ -202,7 +202,7 @@
             "min_run_seconds": "Ignore runs shorter than"
           },
           "data_description": {
-            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself.",
+            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself. Leave empty for an area you water by hand.",
             "lawn": "The lawn this zone waters.",
             "min_run_seconds": "Shorter runs, such as tests, aren't recorded."
           }
@@ -452,6 +452,9 @@
           "soil_test": "Soil test",
           "other": "Other"
         }
+      },
+      "watering_zone": {
+        "name": "Watering zone"
       }
     },
     "date": {

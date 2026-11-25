@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Irrigation: add sprinkler zones (any on/off `switch`, `valve` or `input_boolean`, e.g. ESPHome) and every run is recorded with its start and length, including runs that span a restart and recent runs from history. Log watering by hand from the dashboard or with `turf_manager.log_watering`. New sensors: last watered, watering last 7 days, and per-zone last run and 7-day minutes. The dashboard gets an Irrigation block with zone toggles; the History table and calendar include watering.
+- Irrigation zones can be hand-watered (no switch), and watering by hand can be logged against a zone. The dashboard shows each zone's own 7-day minutes beside its on/off tile, plus the all-zones total.
 - The "water" activity is replaced by irrigation logging (its sensor is removed; old entries stay in the history).
 - GDD comparison box: clearer wording. It says which PGR application the totals run from (date, days and main GDD), and the tiles are named by method, e.g. "Main sensor, daily-mean method".
 

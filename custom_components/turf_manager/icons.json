@@ -126,6 +126,9 @@
       },
       "activity": {
         "default": "mdi:format-list-checks"
+      },
+      "watering_zone": {
+        "default": "mdi:map-marker-radius"
       }
     },
     "date": {

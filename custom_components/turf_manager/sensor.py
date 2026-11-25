@@ -21,12 +21,13 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
 from . import TurfConfigEntry
-from .const import ACTIVITIES_ENABLED_BY_DEFAULT, ACTIVITY_TYPES, SUBENTRY_LAWN
+from .const import ACTIVITIES_ENABLED_BY_DEFAULT, ACTIVITY_TYPES, DOMAIN, SUBENTRY_LAWN
 from .coordinator import COMPARISONS, TurfCoordinator
 from .entity import TurfLawnEntity
 from .models import IrrigationZone, Lawn, LawnState, entry_start
@@ -100,13 +101,29 @@ def _comparison(key: str, description_key: str) -> LawnSensorDescription:
 
 
 def _watering_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
-    zones = [z for z in coordinator.zones().values() if z.lawn_id == state.lawn_id]
+    zones = sorted(
+        (z for z in coordinator.zones().values() if z.lawn_id == state.lawn_id),
+        key=lambda z: z.name.casefold(),
+    )
+    registry = er.async_get(coordinator.hass)
     return {
         "runs": state.watering_runs_7d,
         "manual_minutes": state.watering_manual_7d,
         "by_zone": {z.name: round(state.watering_by_zone.get(z.id, 0), 1) for z in zones},
-        # Used by the dashboard to show an on/off tile per zone.
-        "zones": [{"name": z.name, "entity_id": z.entity_id} for z in zones],
+        # Used by the dashboard to show a row per zone.
+        "zones": [
+            {
+                "name": z.name,
+                "entity_id": z.entity_id,
+                "minutes_entity": registry.async_get_entity_id(
+                    "sensor", DOMAIN, f"{z.lawn_id}_{z.id}_zone_minutes_7d"
+                ),
+                "last_run_entity": registry.async_get_entity_id(
+                    "sensor", DOMAIN, f"{z.lawn_id}_{z.id}_zone_last_run"
+                ),
+            }
+            for z in zones
+        ],
     }
 
 

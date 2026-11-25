@@ -115,15 +115,15 @@ Every entry also appears in the logbook and fires a `turf_manager_entry_logged` 
 
 ## Irrigation
 
-Add each sprinkler zone on the integration page with **Add irrigation zone**: a name, its on/off entity (an ESPHome or other `switch`, `valve` or `input_boolean`), and the lawn it waters.
+Add each sprinkler zone on the integration page with **Add irrigation zone**: a name, its on/off entity (an ESPHome or other `switch`, `valve` or `input_boolean`), and the lawn it waters. Leave the entity empty for an area you water by hand (e.g. "Back hose"). A lawn can have several zones, and each keeps its own minutes.
 
 - **Every run is recorded automatically**, with when it started and how long it ran. Turf Manager only watches the zone; your existing schedules and automations keep running it.
 - **Runs shorter than a minimum are ignored** (60 seconds by default), so tests and blips aren't logged.
 - **Runs survive a restart.** One that spans a Home Assistant restart is recorded in full.
 - **Recent runs are back-filled.** Runs from about the last 10 days, before you added the zone, are picked up from history.
-- **Watering by hand** is logged from the dashboard (minutes, using the log Date) or with `turf_manager.log_watering`.
+- **Watering by hand** is logged from the dashboard (zone, minutes, and the log Date) or with `turf_manager.log_watering`.
 
-The lawn's dashboard tab has an **Irrigation** block with last watered, minutes over the last 7 days, an on/off tile for each zone (tap to start or stop it), and the by-hand form. Watering appears in the History table (filter **Watering**) and the calendar.
+The lawn's dashboard tab has an **Irrigation** block: last watered and the all-zones total, then a row per zone (its on/off tile showing when it last changed, tap to start or stop it; or, for a hand-watered zone, when it was last watered) beside that zone's own minutes over the last 7 days, and a form to log watering by hand against a zone. Watering appears in the History table (filter **Watering**) and the calendar.
 
 ## Mixes
 
