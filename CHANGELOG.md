@@ -1,11 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-25)
 
 - With a fallback temperature sensor configured, each lawn also counts GDD since PGR from the fallback sensor alone, with the difference from the main figure, shown just below the main GDD on the dashboard.
-
-## 0.1.1 (2026-11-25)
-
 - Dashboard: before any PGR is recorded, the PGR section shows a prompt to set the last application instead of a gauge error ("non-numeric entity").
 
 ## 0.1.0 (2026-11-25)
