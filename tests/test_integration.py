@@ -750,13 +750,15 @@ async def test_fallback_sensor_gdd_for_comparison(recorder_mock: Any, hass: Home
         {"unit_of_measurement": "°C", "device_class": "temperature", "state_class": "measurement"},
     )
     today = dt_util.now().date()
-    for statistic_id, mean in ((TEMP_SENSOR, 20.0), (fallback, 22.0)):
+    # Main: mean 20 but a skewed day (low 12, high 32), so min/max gives 22.
+    # Fallback: mean 22, low 17, high 27, so both methods give 22.
+    for statistic_id, mean, low, high in ((TEMP_SENSOR, 20.0, 12.0, 32.0), (fallback, 22.0, 17.0, 27.0)):
         rows = []
         for offset in (3, 2, 1):
             midnight = dt_util.start_of_local_day(today - timedelta(days=offset))
             rows += [
                 {"start": dt_util.as_utc(midnight + timedelta(hours=h)), "mean": mean,
-                 "min": mean - 5, "max": mean + 5}
+                 "min": low, "max": high}
                 for h in range(24)
             ]
         async_import_statistics(
@@ -786,19 +788,37 @@ async def test_fallback_sensor_gdd_for_comparison(recorder_mock: Any, hass: Home
     main = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr")
     assert main.attributes["gdd_completed_days"] == pytest.approx(30.0)
     assert main.attributes["missing_days"] == []
-    compare = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor")
+    compare = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_daily_mean")
     assert compare is not None
     # No statistics for today yet, so today adds 0 to both.
     assert float(main.state) == pytest.approx(30.0)
     assert float(compare.state) == pytest.approx(36.0)
     assert compare.attributes["difference"] == pytest.approx(6.0)
     assert compare.attributes["difference_percent"] == pytest.approx(20.0)
-    assert compare.attributes["fallback_sensor"] == fallback
+    assert compare.attributes["sensor"] == fallback
+    assert compare.attributes["method"] == "mean"
     assert compare.attributes["missing_days"] == []
+
+    def value(name: str) -> float:
+        return float(hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_{name}").state)
+
+    # Main sensor: daily mean 3 x (20 - 10) = 30; min/max 3 x ((12 + 32) / 2 - 10) = 36.
+    assert value("main_sensor_daily_mean") == pytest.approx(30.0)
+    assert value("main_sensor_min_max_average") == pytest.approx(36.0)
+    main_minmax = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_main_sensor_min_max_average")
+    assert main_minmax.attributes["difference"] == pytest.approx(6.0)
+    assert main_minmax.attributes["sensor"] == TEMP_SENSOR
+    # Fallback: (17 + 27) / 2 = 22, the same as its mean.
+    assert value("fallback_sensor_min_max_average") == pytest.approx(36.0)
+    minmax = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_min_max_average")
+    assert minmax.attributes["method"] == "minmax"
+    assert minmax.attributes["difference"] == pytest.approx(6.0)
 
 
 async def test_no_fallback_comparison_without_a_fallback_sensor(
     recorder_mock: Any, hass: HomeAssistant
 ) -> None:
     await _setup(hass)
-    assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor") is None
+    assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_daily_mean") is None
+    assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_min_max_average") is None
+    assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_main_sensor_min_max_average") is not None

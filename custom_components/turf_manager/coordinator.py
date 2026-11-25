@@ -43,6 +43,8 @@ from .const import (
     UPDATE_INTERVAL,
 )
 from .gdd import (
+    METHOD_MEAN,
+    METHOD_MINMAX,
     PGR_MODELS,
     daily_gdd,
     daily_temperature,
@@ -54,6 +56,14 @@ from .models import Lawn, LawnState, Product, SiteState, entry_date, entry_summa
 from .store import TurfStore
 from .units import HEIGHT_UNIT_IN, HEIGHT_UNIT_MM, nutrient_g_per_m2, total_product
 from .weather_source import WeatherSource
+
+# GDD since PGR counted other ways, for comparison: key -> (sensor, method).
+COMPARISONS: dict[str, tuple[str, str]] = {
+    "main_mean": ("main", METHOD_MEAN),
+    "main_minmax": ("main", METHOD_MINMAX),
+    "fallback_mean": ("fallback", METHOD_MEAN),
+    "fallback_minmax": ("fallback", METHOD_MINMAX),
+}
 
 
 def site_config(entry: ConfigEntry) -> dict[str, Any]:
@@ -323,10 +333,14 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
         return pgr[-1] if pgr else None
 
     def _day_temp(self, record: dict[str, Any] | None, base: float) -> float | None:
+        return self._temp_by(record, self.method, base)
+
+    @staticmethod
+    def _temp_by(record: dict[str, Any] | None, method: str, base: float) -> float | None:
         if not record:
             return None
         return daily_temperature(
-            record.get("mean"), record.get("min"), record.get("max"), self.method, base
+            record.get("mean"), record.get("min"), record.get("max"), method, base
         )
 
     def season_start(self, today: date) -> date:
@@ -363,7 +377,7 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
             start_day = entry_date(last)
             state.days_since_pgr = (today - start_day).days
             completed = 0.0
-            fallback = 0.0
+            compared = dict.fromkeys(COMPARISONS, 0.0)
             day = start_day
             while day < today:
                 record = self.store.get_day(day)
@@ -376,15 +390,20 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
                 fb = (record or {}).get("fb")
                 if not (fb or {}).get("hours"):
                     state.fallback_missing_days.append(day.isoformat())
-                fallback += daily_gdd(self._day_temp(fb, base), base)
+                for key, (source, method) in COMPARISONS.items():
+                    day_record = record if source == "main" else fb
+                    compared[key] += daily_gdd(self._temp_by(day_record, method, base), base)
                 day += timedelta(days=1)
             today_part = state.gdd_today if start_day <= today else 0.0
             state.gdd_completed = round(completed, 2)
             state.gdd_total = round(completed + today_part, 2)
-            if self.source.fallback:
-                fb_today = daily_gdd(self._day_temp(self._today_fallback, base), base)
-                state.gdd_fallback_total = round(
-                    fallback + (fb_today if start_day <= today else 0.0), 2
+            for key, (source, method) in COMPARISONS.items():
+                if source == "fallback" and not self.source.fallback:
+                    continue
+                today_record = self._today_record if source == "main" else self._today_fallback
+                today_gdd = daily_gdd(self._temp_by(today_record, method, base), base)
+                state.comparisons[key] = round(
+                    compared[key] + (today_gdd if start_day <= today else 0.0), 2
                 )
             state.progress = round(state.gdd_total / lawn.gdd_target * 100, 1)
             state.due = state.gdd_total >= lawn.gdd_target

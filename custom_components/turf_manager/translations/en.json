@@ -340,7 +340,16 @@
         "name": "Application mix"
       },
       "gdd_since_pgr_fallback": {
-        "name": "GDD since PGR (fallback sensor)"
+        "name": "GDD since PGR (fallback sensor, daily mean)"
+      },
+      "gdd_since_pgr_mean": {
+        "name": "GDD since PGR (main sensor, daily mean)"
+      },
+      "gdd_since_pgr_minmax": {
+        "name": "GDD since PGR (main sensor, min/max average)"
+      },
+      "gdd_since_pgr_fallback_minmax": {
+        "name": "GDD since PGR (fallback sensor, min/max average)"
       }
     },
     "binary_sensor": {

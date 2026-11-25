@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- GDD comparison: diagnostic sensors for GDD since PGR from the main and fallback sensors, each by daily mean and by min/max average, with the difference from the main figure. Shown together in a "GDD comparison" box on the dashboard's Settings tab (the fallback comparison moved there from the PGR section). The fallback sensor's daily-mean comparison is now always daily mean, whatever method the main count uses.
+
 ## 0.2.0 (2026-11-25)
 
 - With a fallback temperature sensor configured, each lawn also counts GDD since PGR from the fallback sensor alone, with the difference from the main figure, shown just below the main GDD on the dashboard.

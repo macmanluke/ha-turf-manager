@@ -26,7 +26,7 @@ from homeassistant.util import dt as dt_util
 
 from . import TurfConfigEntry
 from .const import ACTIVITIES_ENABLED_BY_DEFAULT, ACTIVITY_TYPES, SUBENTRY_LAWN
-from .coordinator import TurfCoordinator
+from .coordinator import COMPARISONS, TurfCoordinator
 from .entity import TurfLawnEntity
 from .models import Lawn, LawnState, entry_start
 from .units import HEIGHT_UNIT_IN
@@ -63,20 +63,39 @@ def _pgr_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]
     }
 
 
-def _fallback_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
-    difference = None
-    percent = None
-    if state.gdd_total is not None and state.gdd_fallback_total is not None:
-        difference = round(state.gdd_fallback_total - state.gdd_total, 1)
-        if state.gdd_total:
-            percent = round(difference / state.gdd_total * 100, 1)
-    return {
-        "difference": difference,
-        "difference_percent": percent,
-        "main_gdd": state.gdd_total,
-        "fallback_sensor": coordinator.source.fallback,
-        "missing_days": state.fallback_missing_days,
-    }
+def _comparison_attrs(key: str) -> Callable[[LawnState, TurfCoordinator], dict[str, Any]]:
+    source, method = COMPARISONS[key]
+
+    def attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
+        value = state.comparisons.get(key)
+        difference = percent = None
+        if state.gdd_total is not None and value is not None:
+            difference = round(value - state.gdd_total, 1)
+            if state.gdd_total:
+                percent = round(difference / state.gdd_total * 100, 1)
+        return {
+            "difference": difference,
+            "difference_percent": percent,
+            "main_gdd": state.gdd_total,
+            "sensor": coordinator.source.primary if source == "main" else coordinator.source.fallback,
+            "method": method,
+            "missing_days": state.missing_days if source == "main" else state.fallback_missing_days,
+        }
+
+    return attrs
+
+
+def _comparison(key: str, description_key: str) -> LawnSensorDescription:
+    return LawnSensorDescription(
+        key=description_key,
+        native_unit_of_measurement=GDD_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s, k=key: s.comparisons.get(k),
+        attrs_fn=_comparison_attrs(key),
+        requires_fallback=COMPARISONS[key][0] == "fallback",
+    )
 
 
 def _progress_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
@@ -167,15 +186,11 @@ LAWN_SENSORS: tuple[LawnSensorDescription, ...] = (
         value_fn=lambda s: s.gdd_total,
         attrs_fn=_pgr_attrs,
     ),
-    LawnSensorDescription(
-        key="gdd_since_pgr_fallback",
-        native_unit_of_measurement=GDD_UNIT,
-        state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=1,
-        value_fn=lambda s: s.gdd_fallback_total,
-        attrs_fn=_fallback_attrs,
-        requires_fallback=True,
-    ),
+    # GDD since PGR counted other ways, for the dashboard's comparison box.
+    _comparison("main_mean", "gdd_since_pgr_mean"),
+    _comparison("main_minmax", "gdd_since_pgr_minmax"),
+    _comparison("fallback_mean", "gdd_since_pgr_fallback"),
+    _comparison("fallback_minmax", "gdd_since_pgr_fallback_minmax"),
     LawnSensorDescription(
         key="pgr_progress",
         native_unit_of_measurement=PERCENTAGE,

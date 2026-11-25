@@ -26,7 +26,12 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
       "last_top_dress", "log_entries", "application_mix"]) {
       add(id("sensor", key), device, key);
     }
-    if (device === "front") add(id("sensor", "gdd_since_pgr_fallback"), device, "gdd_since_pgr_fallback");
+    add(id("sensor", "gdd_since_pgr_mean"), device, "gdd_since_pgr_mean");
+    add(id("sensor", "gdd_since_pgr_minmax"), device, "gdd_since_pgr_minmax");
+    if (device === "front") {
+      add(id("sensor", "gdd_since_pgr_fallback"), device, "gdd_since_pgr_fallback");
+      add(id("sensor", "gdd_since_pgr_fallback_minmax"), device, "gdd_since_pgr_fallback_minmax");
+    }
     add(id("sensor", "mean_temperature_today"), device, "mean_temperature_today", {
       attributes: { weather_entity: "weather.home" },
     });
@@ -97,19 +102,12 @@ assert.equal(pgr[3].type, "vertical-stack");
 assert.deepEqual(pgr[3].grid_options, { columns: 6 });
 assert.deepEqual(pgr[3].cards.map((c) => c.name), ["GDD since PGR", "Next due", "GDD today"]);
 assert.ok(pgr[3].cards.every((c) => !c.grid_options), "stacked tiles have no grid options");
-// The fallback-sensor comparison sits just below, full width, showing the difference.
-assert.deepEqual(pgr[4], {
-  type: "tile",
-  entity: "sensor.lawn_front_gdd_since_pgr_fallback",
-  name: "GDD since PGR, fallback sensor",
-  grid_options: { columns: 12 },
-  state_content: ["state", "difference"],
-});
-assert.equal(pgr[5].type, "markdown");
-assert.equal(pgr[5].show_empty, false);
-assert.match(pgr[5].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
-// Without a fallback sensor (the back lawn in this mock) there's no comparison tile.
-assert.ok(!JSON.stringify(config.views[0]).includes("gdd_since_pgr_fallback"));
+assert.equal(pgr[4].type, "markdown");
+assert.equal(pgr[4].show_empty, false);
+assert.match(pgr[4].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
+// Comparisons live on the Settings tab, not in the lawn tab.
+assert.ok(!JSON.stringify(front).includes("gdd_since_pgr_fallback"));
+assert.ok(!JSON.stringify(front).includes("gdd_since_pgr_minmax"));
 assert.deepEqual(
   formIn(pgr, "date.lawn_front_last_pgr_application").entities.map((r) => r.entity),
   ["date.lawn_front_last_pgr_application", "button.lawn_front_log_pgr_today"],
@@ -175,6 +173,25 @@ assert.deepEqual(
 
 // Settings tab: a form per lawn plus where to manage lawns and products.
 const settings = config.views[3];
+// Each lawn's settings include a GDD comparison box: four tiles with the difference,
+// or just the main-sensor pair when there's no fallback sensor (the back lawn here).
+const comparisonTiles = (sectionIndex) =>
+  settings.sections[sectionIndex].cards.filter((c) => c.type === "tile");
+assert.deepEqual(
+  comparisonTiles(1).map((c) => [c.entity, c.name]),
+  [
+    ["sensor.lawn_front_gdd_since_pgr_mean", "Main sensor · daily mean"],
+    ["sensor.lawn_front_gdd_since_pgr_minmax", "Main sensor · min/max"],
+    ["sensor.lawn_front_gdd_since_pgr_fallback", "Fallback sensor · daily mean"],
+    ["sensor.lawn_front_gdd_since_pgr_fallback_minmax", "Fallback sensor · min/max"],
+  ],
+);
+assert.ok(comparisonTiles(1).every((c) => JSON.stringify(c.state_content) === '["state","difference"]'));
+assert.deepEqual(
+  comparisonTiles(0).map((c) => c.name),
+  ["Main sensor · daily mean", "Main sensor · min/max"],
+);
+assert.ok(settings.sections[1].cards.some((c) => c.type === "heading" && c.heading === "GDD comparison"));
 assert.deepEqual(headingsOf(settings), ["Back yard", "Front lawn", "Lawns and products"]);
 assert.deepEqual(
   settings.sections[1].cards[1].entities.map((r) => r.entity),

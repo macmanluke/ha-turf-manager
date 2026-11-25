@@ -162,11 +162,6 @@ function pgrSection(e) {
 
   return section("Plant growth regulator", "mdi:sprout", [
     ...summary,
-    // Same count from the fallback sensor alone (only when one is configured).
-    tile(e["sensor:gdd_since_pgr_fallback"], "GDD since PGR, fallback sensor", {
-      ...FULL,
-      state_content: ["state", "difference"],
-    }),
     missingDataNotice(e["sensor:gdd_since_pgr"]),
     tile(e["sensor:pgr_relative_growth"], "Relative growth", FULL),
     form([
@@ -298,6 +293,31 @@ function historyView(lawns) {
   };
 }
 
+/** GDD since PGR counted by each sensor and method, with the difference from the main figure. */
+function comparisonCards(e) {
+  const compare = (key, name) =>
+    tile(e[`sensor:${key}`], name, { state_content: ["state", "difference"] });
+  const tiles = [
+    compare("gdd_since_pgr_mean", "Main sensor · daily mean"),
+    compare("gdd_since_pgr_minmax", "Main sensor · min/max"),
+    compare("gdd_since_pgr_fallback", "Fallback sensor · daily mean"),
+    compare("gdd_since_pgr_fallback_minmax", "Fallback sensor · min/max"),
+  ].filter(Boolean);
+  if (!tiles.length) return [];
+  return [
+    heading("GDD comparison", "mdi:compare-horizontal", "subtitle"),
+    {
+      type: "markdown",
+      content:
+        "GDD since the last PGR counted different ways. *Daily mean* averages every reading " +
+        "through the day; *min/max* is (high + low) ÷ 2. The second figure is the difference " +
+        "from your main GDD.",
+      ...FULL,
+    },
+    ...tiles,
+  ];
+}
+
 /** The rarely changed per-lawn settings. */
 function settingsView(lawns) {
   return {
@@ -313,6 +333,7 @@ function settingsView(lawns) {
             row(lawn.entities["number:gdd_target"], "GDD target"),
             row(lawn.entities["number:base_temperature"], "Base temperature"),
           ]),
+          ...comparisonCards(lawn.entities),
         ]),
       ),
       section("Lawns and products", "mdi:cog", [

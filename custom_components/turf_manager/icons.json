@@ -69,6 +69,15 @@
       },
       "gdd_since_pgr_fallback": {
         "default": "mdi:compare-horizontal"
+      },
+      "gdd_since_pgr_mean": {
+        "default": "mdi:compare-horizontal"
+      },
+      "gdd_since_pgr_minmax": {
+        "default": "mdi:compare-horizontal"
+      },
+      "gdd_since_pgr_fallback_minmax": {
+        "default": "mdi:compare-horizontal"
       }
     },
     "binary_sensor": {
