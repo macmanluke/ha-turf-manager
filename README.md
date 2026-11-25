@@ -7,7 +7,7 @@
 A Home Assistant custom integration (install with HACS) that does two jobs:
 
 1. **PGR timing by growing degree days (GDD).** Reads temperatures from sensors you already have (Ecowitt, BOM, anything with a temperature sensor) and counts GDD since your last plant growth regulator application. It projects the next due date from the forecast and reminds you on your phone.
-2. **A lawn care log.** Fertiliser, herbicide and other product applications, mowing (mower type and cut height), and jobs like scarifying, coring and top dressing. Everything shows on a calendar per lawn.
+2. **A lawn care log.** Fertiliser, herbicide and other product applications, mowing (mower type and cut height), watering (sprinkler runs recorded automatically, plus watering by hand), and jobs like scarifying, coring and top dressing. Everything shows on a calendar per lawn.
 
 It works with as many lawns as you like, each with its own grass type, base temperature, target and history.
 
@@ -84,7 +84,10 @@ Each lawn is a device. Home Assistant builds entity ids from the lawn's area and
 | `date.<lawn>_log_date` | The day the Log buttons record. Set an earlier day to catch up on things you forgot; it goes back to today at midnight. Back-dated entries are all-day, with no weather snapshot. |
 | `button.<lawn>_save_rate_as_product_default` | Saves the rate you've entered as the selected product's default, so it's filled in next time |
 | `button.<lawn>_add_to_mix`, `button.<lawn>_clear_mix`, `sensor.<lawn>_application_mix` | Build a mix of several products, then **Log application** logs them together |
-| `select.<lawn>_activity`, `button.<lawn>_log_activity` | Scarify, core, aerate, top dress, level, overseed, soil test, water |
+| `select.<lawn>_activity`, `button.<lawn>_log_activity` | Scarify, core, aerate, top dress, level, overseed, soil test |
+| `sensor.<lawn>_last_watered`, `sensor.<lawn>_watering_last_7_days` | When it was last watered, and minutes of watering over the last 7 days (with a per-zone breakdown) |
+| `sensor.<lawn>_<zone>_last_run`, `sensor.<lawn>_<zone>_last_7_days` | Per sprinkler zone |
+| `number.<lawn>_watering_minutes`, `button.<lawn>_log_watering` | Log watering by hand |
 | `sensor.<lawn>_last_mowed`, `_last_cut_height`, `_last_application`, `_last_scarified`… | Shown as "3 days ago" |
 | `sensor.<lawn>_nitrogen_this_season` | g N/m² from products with an N analysis. Resets each season (start month is set per site). |
 | `sensor.<lawn>_mean_temperature_today`, `_yesterday` | The daily mean temperature the GDD is calculated from, with hours of data and which sensor it came from |
@@ -101,6 +104,7 @@ Cut height is stored in mm and shown in mm or inches (site setting, or automatic
 | `turf_manager.mix_add` / `mix_remove` / `mix_clear` | Build a lawn's mix on the dashboard from scripts or other cards |
 | `turf_manager.log_mow` | `mower_type`, `height`, optional `height_unit`, `clippings` (litres) |
 | `turf_manager.log_activity` | Scarify, core, top dress… with details |
+| `turf_manager.log_watering` | Watering by hand (or a sprinkler run Home Assistant didn't see): `minutes`, optional `zone`, `date`, `notes` |
 | `turf_manager.update_entry` / `delete_entry` | Fix an entry. The entry id is in the calendar event details. |
 | `turf_manager.set_daily_temperature` | Enter a day's temperature by hand |
 | `turf_manager.recalculate` | Fetch temperatures again after changing sensors |
@@ -108,6 +112,18 @@ Cut height is stored in mm and shown in mm or inches (site setting, or automatic
 | `turf_manager.export_csv` | Writes the log and daily temperatures to `/config/turf_manager/` |
 
 Every entry also appears in the logbook and fires a `turf_manager_entry_logged` event. Crossing the target fires `turf_manager_pgr_due`.
+
+## Irrigation
+
+Add each sprinkler zone on the integration page with **Add irrigation zone**: a name, its on/off entity (an ESPHome or other `switch`, `valve` or `input_boolean`), and the lawn it waters.
+
+- **Every run is recorded automatically**, with when it started and how long it ran. Turf Manager only watches the zone; your existing schedules and automations keep running it.
+- **Runs shorter than a minimum are ignored** (60 seconds by default), so tests and blips aren't logged.
+- **Runs survive a restart.** One that spans a Home Assistant restart is recorded in full.
+- **Recent runs are back-filled.** Runs from about the last 10 days, before you added the zone, are picked up from history.
+- **Watering by hand** is logged from the dashboard (minutes, using the log Date) or with `turf_manager.log_watering`.
+
+The lawn's dashboard tab has an **Irrigation** block with last watered, minutes over the last 7 days, an on/off tile for each zone (tap to start or stop it), and the by-hand form. Watering appears in the History table (filter **Watering**) and the calendar.
 
 ## Mixes
 
@@ -140,7 +156,7 @@ You get a tab for each lawn, plus **History** and **Settings** tabs.
 
 - **Plant growth regulator:** a progress gauge beside GDD since application, the projected due date and today's GDD. Below them are a date picker for the last application and an **Applied today** button. A notice appears if any days since the application have no temperature data.
 - **Mowing and products:** mower type and cut height with a **Log** button, then product and rate with a **Log** button. Each form starts with a **Date**: today unless you pick an earlier day to catch up. Above each are when you last did it and, for products, nitrogen this season. For a mix, pick each product and rate and press **Add**; an "In this mix" card lists them (remove one with ✕, or **Clear**), and **Log** records them together.
-- **Renovation and weather:** when you last scarified, cored and top dressed, an activity picker with a **Log** button, then the daily mean temperatures and your forecast.
+- **Renovation, irrigation and weather:** when you last scarified, cored and top dressed and an activity picker with a **Log** button; then last watered, the 7-day watering total, a toggle per sprinkler zone and a form to log watering by hand; then the daily mean temperatures and your forecast.
 
 **History:**
 

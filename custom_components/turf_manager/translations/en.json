@@ -171,6 +171,47 @@
       "abort": {
         "reconfigure_successful": "Product updated."
       }
+    },
+    "irrigation_zone": {
+      "initiate_flow": {
+        "user": "Add irrigation zone",
+        "reconfigure": "Edit irrigation zone"
+      },
+      "entry_type": "Irrigation zone",
+      "step": {
+        "user": {
+          "title": "Add an irrigation zone",
+          "data": {
+            "name": "Zone name",
+            "switch_entity": "Sprinkler switch or valve",
+            "lawn": "Lawn",
+            "min_run_seconds": "Ignore runs shorter than"
+          },
+          "data_description": {
+            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself.",
+            "lawn": "The lawn this zone waters.",
+            "min_run_seconds": "Shorter runs, such as tests, aren't recorded."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit irrigation zone",
+          "data": {
+            "name": "Zone name",
+            "switch_entity": "Sprinkler switch or valve",
+            "lawn": "Lawn",
+            "min_run_seconds": "Ignore runs shorter than"
+          },
+          "data_description": {
+            "switch_entity": "The zone's on/off entity, e.g. an ESPHome sprinkler switch. Turf Manager records every run (start and length); it doesn't run the zone itself.",
+            "lawn": "The lawn this zone waters.",
+            "min_run_seconds": "Shorter runs, such as tests, aren't recorded."
+          }
+        }
+      },
+      "abort": {
+        "no_lawns": "Add a lawn first.",
+        "reconfigure_successful": "Irrigation zone updated."
+      }
     }
   },
   "selector": {
@@ -259,7 +300,6 @@
         "level": "Level",
         "overseed": "Overseed",
         "soil_test": "Soil test",
-        "water": "Water",
         "other": "Other"
       }
     },
@@ -267,7 +307,8 @@
       "options": {
         "application": "Applications",
         "mow": "Mowing",
-        "activity": "Activities"
+        "activity": "Activities",
+        "irrigation": "Watering"
       }
     }
   },
@@ -327,9 +368,6 @@
       "last_soil_test": {
         "name": "Last soil test"
       },
-      "last_water": {
-        "name": "Last watered"
-      },
       "last_other": {
         "name": "Last other activity"
       },
@@ -350,6 +388,18 @@
       },
       "gdd_since_pgr_fallback_minmax": {
         "name": "GDD since PGR (fallback sensor, min/max average)"
+      },
+      "last_watered": {
+        "name": "Last watered"
+      },
+      "watering_7d": {
+        "name": "Watering last 7 days"
+      },
+      "zone_last_run": {
+        "name": "{zone} last run"
+      },
+      "zone_minutes_7d": {
+        "name": "{zone} last 7 days"
       }
     },
     "binary_sensor": {
@@ -369,6 +419,9 @@
       },
       "application_rate": {
         "name": "Application rate"
+      },
+      "watering_minutes": {
+        "name": "Watering minutes"
       }
     },
     "select": {
@@ -397,7 +450,6 @@
           "level": "Level",
           "overseed": "Overseed",
           "soil_test": "Soil test",
-          "water": "Water",
           "other": "Other"
         }
       }
@@ -431,6 +483,9 @@
       },
       "save_default_rate": {
         "name": "Save rate as product default"
+      },
+      "log_watering": {
+        "name": "Log watering"
       }
     },
     "calendar": {
@@ -769,6 +824,36 @@
           "description": "The lawn whose mix to clear."
         }
       }
+    },
+    "log_watering": {
+      "name": "Log watering",
+      "description": "Logs watering by hand, or a sprinkler run Home Assistant didn't see. Sprinkler zones you've added are recorded automatically.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn(s) watered."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "How long it was watered for."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Optional irrigation zone name, if it was a sprinkler zone."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date watered. Defaults to now."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "When it was watered."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        }
+      }
     }
   },
   "exceptions": {
@@ -816,6 +901,9 @@
     },
     "log_date_in_future": {
       "message": "The log date can't be in the future."
+    },
+    "zone_not_found": {
+      "message": "There's no irrigation zone called {zone}. Available: {available}."
     }
   },
   "issues": {

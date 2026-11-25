@@ -22,14 +22,17 @@ class TurfStore:
         )
         self.temps: dict[str, dict[str, Any]] = {}
         self.entries: list[dict[str, Any]] = []
+        # Sprinkler zones currently running: zone id -> ISO start time.
+        self.running: dict[str, str] = {}
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.temps = data.get("temps", {})
         self.entries = data.get("entries", [])
+        self.running = data.get("running", {})
 
     def _data_to_save(self) -> dict[str, Any]:
-        return {"temps": self.temps, "entries": self.entries}
+        return {"temps": self.temps, "entries": self.entries, "running": self.running}
 
     def schedule_save(self) -> None:
         self._store.async_delay_save(self._data_to_save, 2)

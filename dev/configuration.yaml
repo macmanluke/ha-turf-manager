@@ -13,6 +13,15 @@ logger:
   logs:
     custom_components.turf_manager: debug
 
+# Two stand-in sprinkler zones (add them as irrigation zones in Turf Manager).
+input_boolean:
+  dev_sprinkler_front:
+    name: Dev sprinkler front
+    icon: mdi:sprinkler
+  dev_sprinkler_back:
+    name: Dev sprinkler back
+    icon: mdi:sprinkler
+
 # A temperature you can change by hand, standing in for the Ecowitt sensor.
 input_number:
   dev_outdoor_temperature:

@@ -29,7 +29,6 @@ const ACTIVITIES = [
   ["level", "Levelled"],
   ["overseed", "Overseeded"],
   ["soil_test", "Soil tested"],
-  ["water", "Watered"],
   ["other", "Other activity"],
 ];
 
@@ -232,6 +231,26 @@ function weatherCards(hass, e) {
   return cards.length ? [heading("Weather", "mdi:weather-partly-cloudy"), ...cards] : [];
 }
 
+/** Watering: last watered, 7-day total, a toggle per sprinkler zone, and logging by hand. */
+function irrigationCards(hass, e) {
+  const total = e["sensor:watering_7d"];
+  const totalState = total ? hass.states[total] : null;
+  const zones = (totalState && totalState.attributes && totalState.attributes.zones) || [];
+  const cards = [
+    tile(e["sensor:last_watered"], "Last watered"),
+    tile(total, "Last 7 days"),
+    ...zones
+      .filter((zone) => zone.entity_id in hass.states)
+      .map((zone) => tile(zone.entity_id, zone.name, { tap_action: { action: "toggle" } })),
+    form([
+      row(e["date:log_date"], "Date"),
+      row(e["number:watering_minutes"], "Minutes"),
+      logRow(e["button:log_watering"], "Log watering by hand"),
+    ]),
+  ].filter(Boolean);
+  return cards.length ? [heading("Irrigation", "mdi:sprinkler-variant"), ...cards] : [];
+}
+
 function renovationAndWeatherSection(hass, e) {
   return section("Renovation", "mdi:shovel", [
     ...ACTIVITIES.map(([key, label]) => tile(e[`sensor:last_${key}`], label)),
@@ -240,6 +259,7 @@ function renovationAndWeatherSection(hass, e) {
       row(e["select:activity"], "Activity"),
       logRow(e["button:log_activity"], "Log it"),
     ]),
+    ...irrigationCards(hass, e),
     ...weatherCards(hass, e),
   ]);
 }
@@ -433,9 +453,15 @@ const FILTERS = [
   { key: "application", label: "Applications" },
   { key: "mow", label: "Mowing" },
   { key: "activity", label: "Activities" },
+  { key: "irrigation", label: "Watering" },
 ];
 
-const KIND_ICONS = { application: "mdi:spray", mow: "mdi:mower", activity: "mdi:shovel" };
+const KIND_ICONS = {
+  application: "mdi:spray",
+  mow: "mdi:mower",
+  activity: "mdi:shovel",
+  irrigation: "mdi:sprinkler-variant",
+};
 
 function escapeHtml(value) {
   return String(value === null || value === undefined ? "" : value).replace(
@@ -452,6 +478,7 @@ function filterEntries(entries, filter) {
 
 function entryIcon(entry) {
   if (entry.kind === "application" && entry.is_pgr) return "mdi:sprout";
+  if (entry.kind === "irrigation" && entry.source === "manual") return "mdi:watering-can";
   return KIND_ICONS[entry.kind] || "mdi:grass";
 }
 
@@ -470,6 +497,9 @@ function entryDetails(entry) {
       parts.push(`${totals.join(", ")} over ${entry.area_m2} m²`);
     }
     if (entry.n_g_m2) parts.push(`N ${entry.n_g_m2} g/m²`);
+  }
+  if (entry.kind === "irrigation") {
+    parts.push(entry.source === "manual" ? "By hand" : "Automatic");
   }
   if (entry.clippings_l !== undefined && entry.clippings_l !== null) {
     parts.push(`${entry.clippings_l} L clippings`);

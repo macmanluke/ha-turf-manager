@@ -7,11 +7,15 @@ from typing import Any
 from uuid import uuid4
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import STATE_ON
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -29,8 +33,11 @@ from .const import (
     FINALISE_DELAY,
     FORECAST_INTERVAL,
     HEIGHT_UNIT_AUTO,
+    IRRIGATION_AUTO,
+    IRRIGATION_MANUAL,
     KIND_ACTIVITY,
     KIND_APPLICATION,
+    KIND_IRRIGATION,
     KIND_MOW,
     LEDGER_KEEP_DAYS,
     LOGGER,
@@ -40,6 +47,7 @@ from .const import (
     SOURCE_NONE,
     SUBENTRY_LAWN,
     SUBENTRY_PRODUCT,
+    SUBENTRY_ZONE,
     UPDATE_INTERVAL,
 )
 from .gdd import (
@@ -52,10 +60,25 @@ from .gdd import (
     relative_growth,
     trailing_average,
 )
-from .models import Lawn, LawnState, Product, SiteState, entry_date, entry_summary
+from .models import (
+    IrrigationZone,
+    Lawn,
+    LawnState,
+    Product,
+    SiteState,
+    entry_date,
+    entry_start,
+    entry_summary,
+)
 from .store import TurfStore
 from .units import HEIGHT_UNIT_IN, HEIGHT_UNIT_MM, nutrient_g_per_m2, total_product
-from .weather_source import WeatherSource
+from .weather_source import WeatherSource, async_entity_history
+
+# Zone states: a switch or input_boolean is "on"/"off", a valve "open"/"closed".
+ZONE_ON_STATES = {STATE_ON, "open", "opening"}
+ZONE_OFF_STATES = {"off", "closed"}
+IRRIGATION_BACKFILL = timedelta(days=10)
+IRRIGATION_WINDOW = timedelta(days=7)
 
 # GDD since PGR counted other ways, for comparison: key -> (sensor, method).
 COMPARISONS: dict[str, tuple[str, str]] = {
@@ -130,6 +153,13 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
             if sub.subentry_type == SUBENTRY_PRODUCT
         }
 
+    def find_zone(self, name_or_id: str) -> IrrigationZone | None:
+        zones = self.zones()
+        if name_or_id in zones:
+            return zones[name_or_id]
+        wanted = name_or_id.strip().casefold()
+        return next((z for z in zones.values() if z.name.casefold() == wanted), None)
+
     def find_product(self, name_or_id: str) -> Product | None:
         products = self.products()
         if name_or_id in products:
@@ -161,6 +191,135 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
                 self.hass, self._async_midnight, hour=0, minute=minute, second=5
             )
         )
+        if zones := self.zones():
+            self._async_init_running(zones)
+            self.config_entry.async_on_unload(
+                async_track_state_change_event(
+                    self.hass, sorted({z.entity_id for z in zones.values()}), self._async_zone_changed
+                )
+            )
+            self.config_entry.async_create_background_task(
+                self.hass, self._async_backfill_irrigation(), f"{DOMAIN} irrigation back-fill"
+            )
+
+    # --- Irrigation -----------------------------------------------------------------
+
+    def zones(self) -> dict[str, IrrigationZone]:
+        lawns = self.lawns()
+        return {
+            sid: zone
+            for sid, sub in self.config_entry.subentries.items()
+            if sub.subentry_type == SUBENTRY_ZONE
+            and (zone := IrrigationZone.from_subentry(sub)).lawn_id in lawns
+        }
+
+    @callback
+    def _async_init_running(self, zones: dict[str, IrrigationZone]) -> None:
+        """Pick up zones already running at startup; drop stale ones (history covers them)."""
+        for zone in zones.values():
+            state = self.hass.states.get(zone.entity_id)
+            if state is not None and state.state in ZONE_ON_STATES:
+                self.store.running.setdefault(zone.id, state.last_changed.isoformat())
+            elif state is not None and state.state in ZONE_OFF_STATES:
+                self.store.running.pop(zone.id, None)
+        for zone_id in [z for z in self.store.running if z not in zones]:
+            del self.store.running[zone_id]
+        self.store.schedule_save()
+
+    async def _async_zone_changed(self, event: Event[EventStateChangedData]) -> None:
+        old, new = event.data["old_state"], event.data["new_state"]
+        if new is None:
+            return
+        for zone in self.zones().values():
+            if zone.entity_id != event.data["entity_id"]:
+                continue
+            if new.state in ZONE_ON_STATES:
+                self.store.running.setdefault(zone.id, new.last_changed.isoformat())
+                self.store.schedule_save()
+            elif new.state in ZONE_OFF_STATES:
+                started = self.store.running.pop(zone.id, None)
+                self.store.schedule_save()
+                start = dt_util.parse_datetime(started) if started else None
+                if start is None and old is not None and old.state in ZONE_ON_STATES:
+                    start = old.last_changed
+                if start is not None:
+                    await self.async_record_run(zone, start, new.last_changed)
+            # unknown/unavailable (e.g. the ESPHome device rebooting) leaves a run open.
+
+    async def _async_backfill_irrigation(self) -> None:
+        """Record completed runs from recorder history that aren't logged yet."""
+        since = dt_util.now() - IRRIGATION_BACKFILL
+        for zone in self.zones().values():
+            try:
+                states = await async_entity_history(self.hass, zone.entity_id, since)
+            except HomeAssistantError as err:
+                LOGGER.debug("No history for %s: %s", zone.entity_id, err)
+                continue
+            run_start = None
+            for state in states:
+                if state.state in ZONE_ON_STATES and run_start is None:
+                    run_start = state.last_changed
+                elif state.state in ZONE_OFF_STATES and run_start is not None:
+                    await self.async_record_run(zone, run_start, state.last_changed, refresh=False)
+                    run_start = None
+        await self.async_refresh()
+
+    async def async_record_run(
+        self,
+        zone: IrrigationZone,
+        start: datetime,
+        end: datetime,
+        *,
+        refresh: bool = True,
+    ) -> dict[str, Any] | None:
+        """Log an automatic zone run, unless it's too short or already logged."""
+        seconds = (end - start).total_seconds()
+        if seconds < max(zone.min_run_s, 1):
+            return None
+        for entry in self.store.entries_for(zone.lawn_id, KIND_IRRIGATION):
+            if entry.get("zone_id") == zone.id and abs(
+                (entry_start(entry) - start).total_seconds()
+            ) < 60:
+                return None
+        entry = self._new_entry(
+            self.get_lawn(zone.lawn_id),
+            KIND_IRRIGATION,
+            dt_util.as_local(start),
+            {
+                "zone_id": zone.id,
+                "zone_name": zone.name,
+                "duration_min": round(seconds / 60, 1),
+                "end": dt_util.as_local(end).isoformat(),
+                "source": IRRIGATION_AUTO,
+            },
+        )
+        await self._async_add(entry, refresh=refresh)
+        return entry
+
+    async def async_log_watering(
+        self,
+        lawn_id: str,
+        *,
+        minutes: float,
+        when: datetime | date | None = None,
+        zone: IrrigationZone | None = None,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Log watering by hand (or a run you started outside Home Assistant)."""
+        entry = self._new_entry(
+            self.get_lawn(lawn_id),
+            KIND_IRRIGATION,
+            when,
+            {
+                "zone_id": zone.id if zone else None,
+                "zone_name": zone.name if zone else None,
+                "duration_min": round(float(minutes), 1),
+                "source": IRRIGATION_MANUAL,
+                "notes": notes,
+            },
+        )
+        await self._async_add(entry)
+        return entry
 
     async def _async_midnight(self, _now: datetime) -> None:
         # A back-dated log date is for catching up today only.
@@ -446,6 +605,24 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
         state.last_application = apps[-1] if apps else None
         for entry in self.store.entries_for(lawn.id, KIND_ACTIVITY):
             state.last_activity[entry.get("activity", "other")] = entry
+
+        waterings = self.store.entries_for(lawn.id, KIND_IRRIGATION)
+        state.last_watering = waterings[-1] if waterings else None
+        cutoff = dt_util.now() - IRRIGATION_WINDOW
+        for entry in waterings:
+            if zone_id := entry.get("zone_id"):
+                state.last_by_zone[zone_id] = entry
+            if entry_start(entry) < cutoff:
+                continue
+            minutes = entry.get("duration_min") or 0
+            state.watering_7d += minutes
+            state.watering_runs_7d += 1
+            if entry.get("source") == IRRIGATION_MANUAL:
+                state.watering_manual_7d += minutes
+            if zone_id:
+                state.watering_by_zone[zone_id] = state.watering_by_zone.get(zone_id, 0) + minutes
+        state.watering_7d = round(state.watering_7d, 1)
+        state.watering_manual_7d = round(state.watering_manual_7d, 1)
 
         state.log_count = len(self.store.entries_for(lawn.id))
         state.log_modified = self._log_modified.get(lawn.id)
@@ -745,7 +922,7 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
     def _touch(self, lawn_id: str) -> None:
         self._log_modified[lawn_id] = dt_util.now()
 
-    async def _async_add(self, entry: dict[str, Any]) -> None:
+    async def _async_add(self, entry: dict[str, Any], *, refresh: bool = True) -> None:
         self.store.add_entry(entry)
         self.store.schedule_save()
         self._touch(entry["lawn_id"])
@@ -762,7 +939,8 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
             },
         )
         # A back-dated PGR application may need older temperatures fetched.
-        await self.async_refresh()
+        if refresh:
+            await self.async_refresh()
 
     def history(
         self,

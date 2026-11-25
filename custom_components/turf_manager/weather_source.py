@@ -329,3 +329,21 @@ def _group_forecast(
 
 def _date_range(start: date, end: date) -> list[date]:
     return [start + timedelta(days=i) for i in range((end - start).days + 1)]
+
+
+async def async_entity_history(
+    hass: HomeAssistant, entity_id: str, start: datetime
+) -> list[Any]:
+    """Recorded states of an entity from ``start`` to now (oldest first)."""
+    history = await get_instance(hass).async_add_executor_job(
+        partial(
+            state_changes_during_period,
+            hass,
+            dt_util.as_utc(start),
+            None,
+            entity_id,
+            no_attributes=True,
+            include_start_time_state=True,
+        )
+    )
+    return history.get(entity_id, [])

@@ -44,6 +44,12 @@ function makeEntries() {
       ],
     },
     {
+      id: "w1", lawn_id: "L1", lawn: "Front lawn", kind: "irrigation", source: "auto",
+      zone_name: "Front sprinklers", duration_min: 25,
+      date: "2026-11-21", start: "2026-11-21T05:00:00+10:30", all_day: false,
+      summary: "Watered 25 min (Front sprinklers)",
+    },
+    {
       id: "t1", lawn_id: "L1", lawn: "Front lawn", kind: "activity", activity: "top_dress",
       date: "2026-11-20", start: "2026-11-20T00:00:00+10:30", all_day: true, summary: "Top dress: 5 mm sand",
     },
@@ -110,27 +116,30 @@ async function main() {
   });
   assert.deepEqual(summaries(), [
     "Top dress: 5 mm sand",
+    "Watered 25 min (Front sprinklers)",
     "PGR mix: Primo Maxx 4 mL/100m² + Lawn food 2.5 kg/100m²",
     "Lawn food 2.5 kg/100m²",
     "Mow 25 mm (cylinder)",
     "PGR: Primo Maxx 4 mL/100m²",
   ]);
   // A mix lists each product's total.
+  assert.equal(rows()[1].querySelector(".details").textContent, "Automatic");
+  assert.ok(rows()[1].querySelector('ha-icon[icon="mdi:sprinkler-variant"]'));
   assert.equal(
-    rows()[1].querySelector(".details").textContent,
+    rows()[2].querySelector(".details").textContent,
     "Primo Maxx 4 mL, Lawn food 2500 g over 100 m² · N 5 g/m²",
   );
   assert.equal(root.querySelector("ha-card").hasAttribute("header"), false, "no header when title is empty");
 
   // Details line: totals, nutrients and weather; notes are escaped, never rendered as HTML.
-  const fertRow = rows()[2];
+  const fertRow = rows()[3];
   assert.match(fertRow.querySelector(".details").textContent, /3750 g over 150 m² · N 5 g\/m² · temperature 22.5°C, wind speed 8km\/h/);
   assert.equal(root.querySelector("img"), null, "notes are not rendered as HTML");
-  assert.match(rows()[3].querySelector(".details").textContent, /12 L clippings · <img src=x onerror=alert\(1\)>/);
+  assert.match(rows()[4].querySelector(".details").textContent, /12 L clippings · <img src=x onerror=alert\(1\)>/);
 
   // All-day entries show a date only; timed ones include the time.
   assert.doesNotMatch(rows()[0].querySelector(".when").textContent, /:/);
-  assert.match(rows()[3].querySelector(".when").textContent, /\d:\d\d/);
+  assert.match(rows()[4].querySelector(".when").textContent, /\d:\d\d/);
 
   // Filters.
   const click = (selector) => root.querySelector(selector).click();
@@ -143,8 +152,10 @@ async function main() {
   assert.deepEqual(summaries(), ["Mow 25 mm (cylinder)"]);
   click('button[data-value="activity"]');
   assert.deepEqual(summaries(), ["Top dress: 5 mm sand"]);
+  click('button[data-value="irrigation"]');
+  assert.deepEqual(summaries(), ["Watered 25 min (Front sprinklers)"]);
   click('button[data-value="all"]');
-  assert.equal(rows().length, 5);
+  assert.equal(rows().length, 6);
 
   // Delete asks first; Cancel backs out without calling anything.
   click('button[data-action="ask-delete"][data-value="m1"]');
@@ -159,7 +170,7 @@ async function main() {
   await tick();
   await tick();
   assert.deepEqual(plain(calls.find((c) => c.service === "delete_entry").service_data), { entry_id: "m1" });
-  assert.equal(rows().length, 4);
+  assert.equal(rows().length, 5);
   assert.ok(!summaries().includes("Mow 25 mm (cylinder)"));
 
   // A change to the lawn's Log entries sensor triggers a reload; unrelated updates don't.

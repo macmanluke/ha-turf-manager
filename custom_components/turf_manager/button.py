@@ -32,6 +32,7 @@ async def async_setup_entry(
                 LogButton(coordinator, subentry_id, "add_to_mix"),
                 LogButton(coordinator, subentry_id, "clear_mix"),
                 LogButton(coordinator, subentry_id, "log_activity"),
+                LogButton(coordinator, subentry_id, "log_watering"),
             ],
             config_subentry_id=subentry_id,
         )
@@ -86,6 +87,12 @@ class LogButton(TurfLawnEntity, ButtonEntity):
             subentry = entry.subentries[product.id]
             self.hass.config_entries.async_update_subentry(
                 entry, subentry, data={**subentry.data, CONF_RATE: rate}
+            )
+        elif self._key == "log_watering":
+            await coordinator.async_log_watering(
+                self._lawn_id,
+                minutes=staged.get("watering_minutes") or 15,
+                when=coordinator.log_when(self._lawn_id),
             )
         elif self._key == "log_activity":
             await coordinator.async_log_activity(

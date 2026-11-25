@@ -18,6 +18,7 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
   };
 
   states["weather.home"] = { entity_id: "weather.home", state: "sunny", attributes: {} };
+  states["switch.front_zone"] = { entity_id: "switch.front_zone", state: "off", attributes: {} };
 
   for (const device of lawns) {
     const id = (domain, key) => `${domain}.lawn_${device}_${key}`;
@@ -32,6 +33,16 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
       add(id("sensor", "gdd_since_pgr_fallback"), device, "gdd_since_pgr_fallback");
       add(id("sensor", "gdd_since_pgr_fallback_minmax"), device, "gdd_since_pgr_fallback_minmax");
     }
+    add(id("sensor", "last_watered"), device, "last_watered");
+    add(id("sensor", "watering_7d"), device, "watering_7d", {
+      attributes: {
+        zones: device === "front"
+          ? [{ name: "Front sprinklers", entity_id: "switch.front_zone" }, { name: "Gone", entity_id: "switch.removed" }]
+          : [],
+      },
+    });
+    add(id("number", "watering_minutes"), device, "watering_minutes");
+    add(id("button", "log_watering"), device, "log_watering");
     add(id("sensor", "mean_temperature_today"), device, "mean_temperature_today", {
       attributes: { weather_entity: "weather.home" },
     });
@@ -146,12 +157,39 @@ assert.equal(mowing.indexOf(mixCard), mowing.indexOf(formIn(mowing, "select.lawn
 
 // Renovation tiles are named without the lawn name; Weather follows.
 assert.deepEqual(
-  renovation.filter((c) => c.type === "tile" && c.entity.includes("_last_")).map((c) => c.name),
+  renovation
+    .filter((c) => c.type === "tile" && c.entity.includes("_last_") && !c.entity.includes("watered"))
+    .map((c) => c.name),
   ["Scarified", "Cored", "Top dressed"],
 );
 assert.deepEqual(
   renovation.filter((c) => c.type === "heading").map((c) => c.heading),
-  ["Renovation", "Weather"],
+  ["Renovation", "Irrigation", "Weather"],
+);
+// Irrigation: last watered, 7-day total, a toggle tile per existing zone, then the by-hand form.
+const irrigationStart = renovation.findIndex((c) => c.heading === "Irrigation");
+const weatherStart = renovation.findIndex((c) => c.heading === "Weather");
+const irrigation = renovation.slice(irrigationStart + 1, weatherStart);
+assert.deepEqual(
+  irrigation.filter((c) => c.type === "tile").map((c) => [c.entity, c.name]),
+  [
+    ["sensor.lawn_front_last_watered", "Last watered"],
+    ["sensor.lawn_front_watering_7d", "Last 7 days"],
+    ["switch.front_zone", "Front sprinklers"],
+  ],
+  "zones whose entity no longer exists are left out",
+);
+assert.deepEqual(
+  irrigation.find((c) => c.entity === "switch.front_zone").tap_action,
+  { action: "toggle" },
+);
+assert.deepEqual(
+  irrigation.find((c) => c.type === "entities").entities,
+  [
+    { entity: "date.lawn_front_log_date", name: "Date" },
+    { entity: "number.lawn_front_watering_minutes", name: "Minutes" },
+    { entity: "button.lawn_front_log_watering", name: "Log watering by hand", action_name: "Log" },
+  ],
 );
 assert.equal(renovation.find((c) => c.type === "weather-forecast").entity, "weather.home");
 assert.deepEqual(

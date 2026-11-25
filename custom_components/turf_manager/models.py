@@ -18,6 +18,7 @@ from .const import (
     CONF_GDD_TARGET,
     CONF_GRASS_TYPE,
     CONF_K,
+    CONF_MIN_RUN,
     CONF_MOA_GROUP,
     CONF_N,
     CONF_NOTES,
@@ -27,11 +28,16 @@ from .const import (
     CONF_PRODUCT_TYPE,
     CONF_RATE,
     CONF_RATE_UNIT,
+    CONF_ZONE_ENTITY,
+    CONF_ZONE_LAWN,
     DEFAULT_BASE_TEMPS,
     DEFAULT_GDD_TARGET,
+    DEFAULT_MIN_RUN,
     GRASS_WARM,
+    IRRIGATION_MANUAL,
     KIND_ACTIVITY,
     KIND_APPLICATION,
+    KIND_IRRIGATION,
     KIND_MOW,
     PGR_MODEL_NONE,
     PRODUCT_PGR,
@@ -63,6 +69,28 @@ class Lawn:
             area_m2=data.get(CONF_AREA),
             gdd_target=float(data.get(CONF_GDD_TARGET, DEFAULT_GDD_TARGET)),
             pgr_product_id=data.get(CONF_PGR_PRODUCT) or None,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class IrrigationZone:
+    """A sprinkler zone (config subentry) watched for runs."""
+
+    id: str
+    name: str
+    entity_id: str
+    lawn_id: str
+    min_run_s: int
+
+    @classmethod
+    def from_subentry(cls, subentry: ConfigSubentry) -> IrrigationZone:
+        data = subentry.data
+        return cls(
+            id=subentry.subentry_id,
+            name=subentry.title,
+            entity_id=data[CONF_ZONE_ENTITY],
+            lawn_id=data[CONF_ZONE_LAWN],
+            min_run_s=int(data.get(CONF_MIN_RUN, DEFAULT_MIN_RUN)),
         )
 
 
@@ -144,6 +172,12 @@ class LawnState:
     season_start: date | None = None
     log_count: int = 0
     log_modified: datetime | None = None
+    last_watering: dict[str, Any] | None = None
+    watering_7d: float = 0.0
+    watering_runs_7d: int = 0
+    watering_manual_7d: float = 0.0
+    watering_by_zone: dict[str, float] = field(default_factory=dict)
+    last_by_zone: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -208,6 +242,13 @@ def entry_summary(entry: dict[str, Any], height_unit: str) -> str:
     if kind == KIND_ACTIVITY:
         label = (entry.get("activity") or "activity").replace("_", " ").capitalize()
         return f"{label}: {entry['details']}" if entry.get("details") else label
+    if kind == KIND_IRRIGATION:
+        minutes = f"{entry.get('duration_min') or 0:g} min"
+        if entry.get("zone_name"):
+            return f"Watered {minutes} ({entry['zone_name']})"
+        if entry.get("source") == IRRIGATION_MANUAL:
+            return f"Watered by hand {minutes}"
+        return f"Watered {minutes}"
     return "Lawn care"
 
 

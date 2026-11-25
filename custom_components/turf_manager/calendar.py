@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import TurfConfigEntry
-from .const import DOMAIN, KIND_ACTIVITY, SUBENTRY_LAWN
+from .const import DOMAIN, KIND_ACTIVITY, KIND_IRRIGATION, SUBENTRY_LAWN
 from .coordinator import TurfCoordinator
 from .entity import TurfLawnEntity
 from .models import entry_date, entry_description, entry_start, entry_summary
@@ -60,7 +60,12 @@ class LawnCalendar(TurfLawnEntity, CalendarEntity):
                 uid=entry["id"],
             )
         start = entry_start(entry)
-        length = timedelta(hours=1) if entry["kind"] == KIND_ACTIVITY else timedelta(minutes=30)
+        if entry["kind"] == KIND_IRRIGATION:
+            length = timedelta(minutes=max(1.0, entry.get("duration_min") or 1))
+        elif entry["kind"] == KIND_ACTIVITY:
+            length = timedelta(hours=1)
+        else:
+            length = timedelta(minutes=30)
         return CalendarEvent(
             start=start, end=start + length, summary=summary, description=description, uid=entry["id"]
         )

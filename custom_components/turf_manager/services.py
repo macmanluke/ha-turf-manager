@@ -87,6 +87,15 @@ MIX_REMOVE_SCHEMA = vol.Schema(
     {vol.Required(ATTR_DEVICE_ID): _DEVICES, vol.Required("product"): cv.string}
 )
 MIX_CLEAR_SCHEMA = vol.Schema({vol.Required(ATTR_DEVICE_ID): _DEVICES})
+LOG_WATERING_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_DEVICE_ID): _DEVICES,
+        vol.Required("minutes"): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=1440)),
+        vol.Optional("zone"): cv.string,
+        vol.Optional("notes"): cv.string,
+        **_WHEN,
+    }
+)
 LOG_PGR_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_DEVICE_ID): _DEVICES,
@@ -298,6 +307,32 @@ def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator, lawn_id in _lawns(hass, call.data[ATTR_DEVICE_ID]):
             coordinator.async_mix_remove(lawn_id, _product(coordinator, call.data["product"]))
 
+    async def log_watering(call: ServiceCall) -> ServiceResponse:
+        entries = []
+        for coordinator, lawn_id in _lawns(hass, call.data[ATTR_DEVICE_ID]):
+            zone = None
+            if name := call.data.get("zone"):
+                zone = coordinator.find_zone(name)
+                if zone is None:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="zone_not_found",
+                        translation_placeholders={
+                            "zone": name,
+                            "available": ", ".join(z.name for z in coordinator.zones().values()) or "-",
+                        },
+                    )
+            entries.append(
+                await coordinator.async_log_watering(
+                    lawn_id,
+                    minutes=call.data["minutes"],
+                    when=_when(call.data),
+                    zone=zone,
+                    notes=call.data.get("notes"),
+                )
+            )
+        return _result(entries)
+
     async def mix_clear(call: ServiceCall) -> None:
         for coordinator, lawn_id in _lawns(hass, call.data[ATTR_DEVICE_ID]):
             coordinator.async_mix_clear(lawn_id)
@@ -451,13 +486,14 @@ def async_setup_services(hass: HomeAssistant) -> None:
     register("mix_add", mix_add, MIX_ADD_SCHEMA, SupportsResponse.NONE)
     register("mix_remove", mix_remove, MIX_REMOVE_SCHEMA, SupportsResponse.NONE)
     register("mix_clear", mix_clear, MIX_CLEAR_SCHEMA, SupportsResponse.NONE)
+    register("log_watering", log_watering, LOG_WATERING_SCHEMA, SupportsResponse.OPTIONAL)
 
 
 _LOG_COLUMNS = [
     "date", "start", "all_day", "lawn", "kind", "summary", "product_name", "product_type",
     "active_ingredient", "is_pgr", "rate", "rate_unit", "area_m2", "total_amount", "total_unit",
     "n_g_m2", "p_g_m2", "k_g_m2", "moa_group", "mower_type", "height_mm", "clippings_l",
-    "activity", "details", "notes", "weather", "id",
+    "activity", "details", "zone_name", "duration_min", "source", "notes", "weather", "id",
 ]
 _TEMP_COLUMNS = ["date", "mean", "min", "max", "hours", "source", "final"]
 

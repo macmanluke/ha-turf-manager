@@ -45,6 +45,7 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_K,
     CONF_METHOD,
+    CONF_MIN_RUN,
     CONF_MOA_GROUP,
     CONF_N,
     CONF_NOTES,
@@ -60,9 +61,12 @@ from .const import (
     CONF_TEMP_SENSOR,
     CONF_WEATHER_ENTITY,
     CONF_WIND_SENSOR,
+    CONF_ZONE_ENTITY,
+    CONF_ZONE_LAWN,
     DEFAULT_BASE_TEMPS,
     DEFAULT_GDD_TARGET,
     DEFAULT_METHOD,
+    DEFAULT_MIN_RUN,
     DEFAULT_SEASON_START_MONTH,
     DOMAIN,
     GRASS_CUSTOM,
@@ -77,6 +81,7 @@ from .const import (
     PRODUCT_TYPES,
     SUBENTRY_LAWN,
     SUBENTRY_PRODUCT,
+    SUBENTRY_ZONE,
 )
 from .gdd import METHODS
 from .units import RATE_UNITS
@@ -228,7 +233,11 @@ class TurfManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        return {SUBENTRY_LAWN: LawnSubentryFlow, SUBENTRY_PRODUCT: ProductSubentryFlow}
+        return {
+            SUBENTRY_LAWN: LawnSubentryFlow,
+            SUBENTRY_PRODUCT: ProductSubentryFlow,
+            SUBENTRY_ZONE: IrrigationZoneSubentryFlow,
+        }
 
     @staticmethod
     @callback
@@ -436,3 +445,62 @@ class ProductSubentryFlow(ConfigSubentryFlow):
                 _opt(CONF_NOTES, values): TextSelector(TextSelectorConfig(multiline=True)),
             }
         )
+
+
+class IrrigationZoneSubentryFlow(ConfigSubentryFlow):
+    """Add or edit a sprinkler zone: its on/off entity and the lawn it waters."""
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        if not self._lawn_options():
+            return self.async_abort(reason="no_lawns")
+        if user_input is not None:
+            return self.async_create_entry(
+                title=user_input.pop(CONF_NAME).strip(), data=_zone_data(user_input)
+            )
+        return self.async_show_form(step_id="user", data_schema=self._schema({}))
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        if user_input is not None:
+            return self.async_update_and_abort(
+                self._get_entry(),
+                subentry,
+                title=user_input.pop(CONF_NAME).strip(),
+                data=_zone_data(user_input),
+            )
+        values = {CONF_NAME: subentry.title, **subentry.data}
+        return self.async_show_form(step_id="reconfigure", data_schema=self._schema(values))
+
+    def _lawn_options(self) -> list[dict[str, str]]:
+        return [
+            {"value": sid, "label": sub.title}
+            for sid, sub in self._get_entry().subentries.items()
+            if sub.subentry_type == SUBENTRY_LAWN
+        ]
+
+    def _schema(self, values: dict[str, Any]) -> vol.Schema:
+        lawns = self._lawn_options()
+        return vol.Schema(
+            {
+                vol.Required(CONF_NAME, default=values.get(CONF_NAME, vol.UNDEFINED)): TextSelector(),
+                vol.Required(
+                    CONF_ZONE_ENTITY, default=values.get(CONF_ZONE_ENTITY, vol.UNDEFINED)
+                ): EntitySelector(EntitySelectorConfig(domain=["switch", "valve", "input_boolean"])),
+                vol.Required(
+                    CONF_ZONE_LAWN, default=values.get(CONF_ZONE_LAWN, lawns[0]["value"])
+                ): SelectSelector(SelectSelectorConfig(options=lawns, mode=SelectSelectorMode.DROPDOWN)),
+                vol.Required(
+                    CONF_MIN_RUN, default=values.get(CONF_MIN_RUN, DEFAULT_MIN_RUN)
+                ): _number(0, 3600, 1, "s"),
+            }
+        )
+
+
+def _zone_data(user_input: dict[str, Any]) -> dict[str, Any]:
+    return {
+        CONF_ZONE_ENTITY: user_input[CONF_ZONE_ENTITY],
+        CONF_ZONE_LAWN: user_input[CONF_ZONE_LAWN],
+        CONF_MIN_RUN: int(user_input[CONF_MIN_RUN]),
+    }

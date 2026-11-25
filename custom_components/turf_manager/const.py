@@ -44,6 +44,13 @@ HEIGHT_UNIT_OPTIONS: Final = [HEIGHT_UNIT_AUTO, "mm", "in"]
 # --- Subentries ------------------------------------------------------------
 SUBENTRY_LAWN: Final = "lawn"
 SUBENTRY_PRODUCT: Final = "product"
+SUBENTRY_ZONE: Final = "irrigation_zone"
+
+# Irrigation zone
+CONF_ZONE_ENTITY: Final = "switch_entity"
+CONF_ZONE_LAWN: Final = "lawn"
+CONF_MIN_RUN: Final = "min_run_seconds"
+DEFAULT_MIN_RUN: Final = 60
 
 # Lawn
 CONF_GRASS_TYPE: Final = "grass_type"
@@ -138,7 +145,10 @@ PRODUCT_PRESETS: Final[dict[str, dict[str, Any]]] = {
 KIND_APPLICATION: Final = "application"
 KIND_MOW: Final = "mow"
 KIND_ACTIVITY: Final = "activity"
-ENTRY_KINDS: Final = [KIND_APPLICATION, KIND_MOW, KIND_ACTIVITY]
+KIND_IRRIGATION: Final = "irrigation"
+ENTRY_KINDS: Final = [KIND_APPLICATION, KIND_MOW, KIND_ACTIVITY, KIND_IRRIGATION]
+IRRIGATION_AUTO: Final = "auto"
+IRRIGATION_MANUAL: Final = "manual"
 
 MOWER_TYPES: Final = ["rotary", "cylinder", "robotic", "other"]
 ACTIVITY_TYPES: Final = [
@@ -149,7 +159,6 @@ ACTIVITY_TYPES: Final = [
     "level",
     "overseed",
     "soil_test",
-    "water",
     "other",
 ]
 ACTIVITIES_ENABLED_BY_DEFAULT: Final = {"scarify", "core", "top_dress"}

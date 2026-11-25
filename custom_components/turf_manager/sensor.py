@@ -18,6 +18,7 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfLength,
     UnitOfTemperature,
+    UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -28,7 +29,7 @@ from . import TurfConfigEntry
 from .const import ACTIVITIES_ENABLED_BY_DEFAULT, ACTIVITY_TYPES, SUBENTRY_LAWN
 from .coordinator import COMPARISONS, TurfCoordinator
 from .entity import TurfLawnEntity
-from .models import Lawn, LawnState, entry_start
+from .models import IrrigationZone, Lawn, LawnState, entry_start
 from .units import HEIGHT_UNIT_IN
 
 GDD_UNIT = "GDD"
@@ -96,6 +97,17 @@ def _comparison(key: str, description_key: str) -> LawnSensorDescription:
         attrs_fn=_comparison_attrs(key),
         requires_fallback=COMPARISONS[key][0] == "fallback",
     )
+
+
+def _watering_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
+    zones = [z for z in coordinator.zones().values() if z.lawn_id == state.lawn_id]
+    return {
+        "runs": state.watering_runs_7d,
+        "manual_minutes": state.watering_manual_7d,
+        "by_zone": {z.name: round(state.watering_by_zone.get(z.id, 0), 1) for z in zones},
+        # Used by the dashboard to show an on/off tile per zone.
+        "zones": [{"name": z.name, "entity_id": z.entity_id} for z in zones],
+    }
 
 
 def _progress_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
@@ -248,6 +260,26 @@ LAWN_SENSORS: tuple[LawnSensorDescription, ...] = (
         value_fn=lambda s: s.nitrogen_season,
     ),
     LawnSensorDescription(
+        key="last_watered",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda s: _start(s.last_watering),
+        attrs_fn=lambda s, c: {
+            "zone": (s.last_watering or {}).get("zone_name"),
+            "minutes": (s.last_watering or {}).get("duration_min"),
+            "source": (s.last_watering or {}).get("source"),
+            "entry_id": (s.last_watering or {}).get("id"),
+        },
+    ),
+    LawnSensorDescription(
+        key="watering_7d",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda s: s.watering_7d,
+        attrs_fn=_watering_attrs,
+    ),
+    LawnSensorDescription(
         key="log_entries",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda s: s.log_count,
@@ -285,6 +317,12 @@ async def async_setup_entry(
                     if coordinator.source.fallback or not description.requires_fallback
                 ),
                 MixSensor(coordinator, subentry_id),
+                *(
+                    ZoneSensor(coordinator, zone, which)
+                    for zone in coordinator.zones().values()
+                    if zone.lawn_id == subentry_id
+                    for which in ("zone_last_run", "zone_minutes_7d")
+                ),
                 MeanTemperatureSensor(coordinator, subentry_id, "mean_temperature_today", "today"),
                 MeanTemperatureSensor(
                     coordinator, subentry_id, "mean_temperature_yesterday", "yesterday"
@@ -332,6 +370,40 @@ class LawnSensor(TurfLawnEntity, SensorEntity):
         if state is None or state.season_start is None:
             return None
         return dt_util.start_of_local_day(state.season_start)
+
+
+class ZoneSensor(TurfLawnEntity, SensorEntity):
+    """A sprinkler zone's last run, or its minutes over the last 7 days (on its lawn's device)."""
+
+    def __init__(self, coordinator: TurfCoordinator, zone: IrrigationZone, which: str) -> None:
+        super().__init__(coordinator, zone.lawn_id, which)
+        self._zone_id = zone.id
+        self._which = which
+        self._attr_unique_id = f"{zone.lawn_id}_{zone.id}_{which}"
+        self._attr_translation_placeholders = {"zone": zone.name}
+        if which == "zone_last_run":
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        else:
+            self._attr_device_class = SensorDeviceClass.DURATION
+            self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 0
+
+    @property
+    def native_value(self) -> Any:
+        state = self.lawn_state
+        if state is None:
+            return None
+        if self._which == "zone_last_run":
+            return _start(state.last_by_zone.get(self._zone_id))
+        return round(state.watering_by_zone.get(self._zone_id, 0), 1)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self._which != "zone_last_run" or self.lawn_state is None:
+            return None
+        entry = self.lawn_state.last_by_zone.get(self._zone_id) or {}
+        return {"minutes": entry.get("duration_min"), "source": entry.get("source")}
 
 
 class MixSensor(TurfLawnEntity, SensorEntity, RestoreEntity):

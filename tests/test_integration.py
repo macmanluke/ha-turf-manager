@@ -822,3 +822,182 @@ async def test_no_fallback_comparison_without_a_fallback_sensor(
     assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_daily_mean") is None
     assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor_min_max_average") is None
     assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_main_sensor_min_max_average") is not None
+
+
+# --- Irrigation -------------------------------------------------------------------
+
+ZONE_SWITCH = "input_boolean.sprinkler_front"
+
+
+async def _add_zone(hass: HomeAssistant, entry: MockConfigEntry, name: str = "Front sprinklers") -> str:
+    lawn_id = next(sid for sid, s in entry.subentries.items() if s.subentry_type == "lawn")
+    flows = hass.config_entries.subentries
+    result = await flows.async_init((entry.entry_id, "irrigation_zone"), context={"source": "user"})
+    _render(result)
+    result = await flows.async_configure(
+        result["flow_id"],
+        {CONF_NAME: name, "switch_entity": ZONE_SWITCH, "lawn": lawn_id, "min_run_seconds": 60},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done(wait_background_tasks=True)
+    return next(sid for sid, s in entry.subentries.items() if s.title == name)
+
+
+async def _history(hass: HomeAssistant, kind: str = "irrigation") -> list[dict[str, Any]]:
+    result = await hass.services.async_call(
+        DOMAIN, "get_history", {"kind": [kind]}, blocking=True, return_response=True
+    )
+    return result["entries"]
+
+
+async def test_sprinkler_runs_are_recorded(recorder_mock: Any, hass: HomeAssistant, freezer: Any) -> None:
+    hass.states.async_set(ZONE_SWITCH, "off")
+    entry = await _setup(hass)
+    await _add_zone(hass, entry)
+
+    # A 25-minute run is recorded; a 20-second blip isn't.
+    hass.states.async_set(ZONE_SWITCH, "on")
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(minutes=25))
+    hass.states.async_set(ZONE_SWITCH, "off")
+    await hass.async_block_till_done()
+    hass.states.async_set(ZONE_SWITCH, "on")
+    freezer.tick(timedelta(seconds=20))
+    hass.states.async_set(ZONE_SWITCH, "off")
+    await hass.async_block_till_done()
+
+    (run,) = await _history(hass)
+    assert run["duration_min"] == 25.0
+    assert run["source"] == "auto"
+    assert run["zone_name"] == "Front sprinklers"
+    assert run["summary"] == "Watered 25 min (Front sprinklers)"
+
+    assert hass.states.get(f"sensor.{LAWN}_last_watered").attributes["zone"] == "Front sprinklers"
+    total = hass.states.get(f"sensor.{LAWN}_watering_last_7_days")
+    assert float(total.state) == 25.0
+    assert total.attributes["zones"] == [{"name": "Front sprinklers", "entity_id": ZONE_SWITCH}]
+    assert total.attributes["by_zone"] == {"Front sprinklers": 25.0}
+    assert float(hass.states.get(f"sensor.{LAWN}_front_sprinklers_last_7_days").state) == 25.0
+    assert hass.states.get(f"sensor.{LAWN}_front_sprinklers_last_run").state not in ("unknown", "unavailable")
+
+    # The calendar event lasts as long as the run.
+    now = dt_util.now()
+    events = await hass.services.async_call(
+        "calendar", "get_events",
+        {"entity_id": f"calendar.{LAWN}", "start_date_time": (now - timedelta(hours=2)).isoformat(),
+         "end_date_time": now.isoformat()},
+        blocking=True, return_response=True,
+    )
+    (event,) = [e for e in events[f"calendar.{LAWN}"]["events"] if e["summary"].startswith("Watered")]
+    start, end = dt_util.parse_datetime(event["start"]), dt_util.parse_datetime(event["end"])
+    assert end - start == timedelta(minutes=25)
+
+
+async def test_run_spanning_a_restart_is_recorded_in_full(
+    recorder_mock: Any, hass: HomeAssistant, freezer: Any
+) -> None:
+    hass.states.async_set(ZONE_SWITCH, "off")
+    entry = await _setup(hass)
+    await _add_zone(hass, entry)
+    hass.states.async_set(ZONE_SWITCH, "on")
+    await hass.async_block_till_done()
+
+    freezer.tick(timedelta(minutes=10))
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    freezer.tick(timedelta(minutes=20))
+    hass.states.async_set(ZONE_SWITCH, "off")
+    await hass.async_block_till_done()
+
+    runs = await _history(hass)
+    assert [r["duration_min"] for r in runs] == [30.0]
+
+
+async def test_runs_before_the_zone_was_added_are_back_filled_once(
+    recorder_mock: Any, hass: HomeAssistant, freezer: Any
+) -> None:
+    from pytest_homeassistant_custom_component.components.recorder.common import (
+        async_wait_recording_done,
+    )
+
+    hass.states.async_set(ZONE_SWITCH, "off")
+    entry = await _setup(hass)
+    freezer.tick(timedelta(minutes=1))
+    hass.states.async_set(ZONE_SWITCH, "on")
+    freezer.tick(timedelta(minutes=15))
+    hass.states.async_set(ZONE_SWITCH, "off")
+    await async_wait_recording_done(hass)
+
+    await _add_zone(hass, entry)
+    assert [r["duration_min"] for r in await _history(hass)] == [15.0]
+
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [r["duration_min"] for r in await _history(hass)] == [15.0], "not recorded twice"
+
+
+async def test_watering_by_hand(recorder_mock: Any, hass: HomeAssistant) -> None:
+    from homeassistant.exceptions import ServiceValidationError
+
+    hass.states.async_set(ZONE_SWITCH, "off")
+    entry = await _setup(hass)
+    await _add_zone(hass, entry)
+    yesterday = dt_util.now().date() - timedelta(days=1)
+
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": f"number.{LAWN}_watering_minutes", "value": 20}, blocking=True
+    )
+    await hass.services.async_call(
+        "date", "set_value", {"entity_id": f"date.{LAWN}_log_date", "date": yesterday.isoformat()},
+        blocking=True,
+    )
+    await hass.services.async_call("button", "press", {"entity_id": f"button.{LAWN}_log_watering"}, blocking=True)
+    await hass.services.async_call(
+        DOMAIN, "log_watering",
+        {"device_id": _lawn_device_id(hass), "minutes": 10, "zone": "front sprinklers", "notes": "Hot day"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    by_hand, zone_run = await _history(hass)
+    assert (by_hand["date"], by_hand["all_day"], by_hand["source"]) == (yesterday.isoformat(), True, "manual")
+    assert by_hand["summary"] == "Watered by hand 20 min"
+    assert zone_run["summary"] == "Watered 10 min (Front sprinklers)"
+    assert zone_run["notes"] == "Hot day"
+    total = hass.states.get(f"sensor.{LAWN}_watering_last_7_days")
+    assert float(total.state) == 30.0
+    assert total.attributes["manual_minutes"] == 30.0
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, "log_watering", {"device_id": _lawn_device_id(hass), "minutes": 5, "zone": "Nope"},
+            blocking=True,
+        )
+
+
+async def test_water_activity_is_replaced_by_irrigation(recorder_mock: Any, hass: HomeAssistant) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    entry = await _setup(hass)
+    assert "water" not in hass.states.get(f"select.{LAWN}_activity").attributes["options"]
+    lawn_id = next(sid for sid, s in entry.subentries.items() if s.subentry_type == "lawn")
+    entities = er.async_get(hass)
+    entities.async_get_or_create("sensor", DOMAIN, f"{lawn_id}_last_water", config_entry=entry)
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entities.async_get_entity_id("sensor", DOMAIN, f"{lawn_id}_last_water") is None
+
+
+async def test_zone_needs_a_lawn(recorder_mock: Any, hass: HomeAssistant) -> None:
+    _set_sensor(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Home",
+        data={CONF_TEMP_SENSOR: TEMP_SENSOR, CONF_METHOD: "mean", CONF_SEASON_START_MONTH: "7", CONF_HEIGHT_UNIT: "auto"},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "irrigation_zone"), context={"source": "user"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "no_lawns"

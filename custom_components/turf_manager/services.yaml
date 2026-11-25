@@ -160,7 +160,6 @@ log_activity:
             - level
             - overseed
             - soil_test
-            - water
             - other
     details:
       selector:
@@ -329,6 +328,7 @@ get_history:
             - application
             - mow
             - activity
+            - irrigation
     start_date:
       selector:
         date:
@@ -407,3 +407,36 @@ mix_clear:
           multiple: true
           filter:
             - integration: turf_manager
+
+log_watering:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    minutes:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 1440
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    zone:
+      example: "Front sprinklers"
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    notes:
+      selector:
+        text:
+          multiline: true

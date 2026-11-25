@@ -55,9 +55,6 @@
       "last_soil_test": {
         "default": "mdi:test-tube"
       },
-      "last_water": {
-        "default": "mdi:sprinkler-variant"
-      },
       "last_other": {
         "default": "mdi:grass"
       },
@@ -78,6 +75,18 @@
       },
       "gdd_since_pgr_fallback_minmax": {
         "default": "mdi:compare-horizontal"
+      },
+      "last_watered": {
+        "default": "mdi:sprinkler-variant"
+      },
+      "watering_7d": {
+        "default": "mdi:water"
+      },
+      "zone_last_run": {
+        "default": "mdi:sprinkler"
+      },
+      "zone_minutes_7d": {
+        "default": "mdi:timer-sand"
       }
     },
     "binary_sensor": {
@@ -100,6 +109,9 @@
       },
       "application_rate": {
         "default": "mdi:beaker-outline"
+      },
+      "watering_minutes": {
+        "default": "mdi:timer-outline"
       }
     },
     "select": {
@@ -145,6 +157,9 @@
       },
       "save_default_rate": {
         "default": "mdi:content-save-outline"
+      },
+      "log_watering": {
+        "default": "mdi:watering-can"
       }
     },
     "calendar": {
@@ -192,6 +207,9 @@
     },
     "mix_clear": {
       "service": "mdi:playlist-remove"
+    },
+    "log_watering": {
+      "service": "mdi:watering-can"
     }
   }
 }

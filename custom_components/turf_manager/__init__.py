@@ -10,9 +10,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_GRASS_TYPE, DOMAIN, LOGGER, PLATFORMS, SUBENTRY_LAWN
+from .const import (
+    CONF_GRASS_TYPE,
+    DOMAIN,
+    LOGGER,
+    PLATFORMS,
+    SUBENTRY_LAWN,
+    SUBENTRY_ZONE,
+)
 from .coordinator import TurfCoordinator, site_config
 from .services import async_setup_services
 from .store import TurfStore
@@ -105,6 +113,14 @@ def _async_remove_site_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
         if (DOMAIN, entry.entry_id) in device.identifiers:
             registry.async_remove_device(device.id)
 
+    # The "water" activity was replaced by irrigation logging; drop its sensor.
+    entities = er.async_get(hass)
+    for sid, sub in entry.subentries.items():
+        if sub.subentry_type == SUBENTRY_LAWN and (
+            entity_id := entities.async_get_entity_id("sensor", DOMAIN, f"{sid}_last_water")
+        ):
+            entities.async_remove(entity_id)
+
 
 def _signature(entry: ConfigEntry) -> tuple[Any, ...]:
     """Settings that need a reload (entities/devices change) when edited."""
@@ -115,7 +131,14 @@ def _signature(entry: ConfigEntry) -> tuple[Any, ...]:
             if sub.subentry_type == SUBENTRY_LAWN
         )
     )
-    return (tuple(sorted(site_config(entry).items())), lawns)
+    zones = tuple(
+        sorted(
+            (sid, sub.title, tuple(sorted(sub.data.items())))
+            for sid, sub in entry.subentries.items()
+            if sub.subentry_type == SUBENTRY_ZONE
+        )
+    )
+    return (tuple(sorted(site_config(entry).items())), lawns, zones)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: TurfConfigEntry) -> None:
