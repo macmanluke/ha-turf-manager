@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 (2026-11-25)
+
+- Dashboard: before any PGR is recorded, the PGR section shows a prompt to set the last application instead of a gauge error ("non-numeric entity").
+
 ## 0.1.0 (2026-11-25)
 
 First release.

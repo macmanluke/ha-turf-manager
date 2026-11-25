@@ -116,15 +116,30 @@ function missingDataNotice(entity) {
 }
 
 function pgrSection(e) {
-  const gauge = e["sensor:pgr_progress"]
+  const progress = e["sensor:pgr_progress"];
+  // Progress is unknown until a PGR application is recorded; a gauge can't show
+  // that ("non-numeric entity"), so a prompt takes its place until then.
+  const noValue = ["unknown", "unavailable"];
+  const gauge = progress
     ? {
         type: "gauge",
-        entity: e["sensor:pgr_progress"],
+        entity: progress,
         name: "PGR progress",
         min: 0,
         max: 120,
         needle: true,
         severity: { green: 0, yellow: 85, red: 100 },
+        visibility: [{ condition: "state", entity: progress, state_not: noValue }],
+      }
+    : null;
+  const noPgrYet = progress
+    ? {
+        type: "markdown",
+        content:
+          "### No PGR recorded yet\n" +
+          "Set **Last applied** below to your last application, or press **Log** on " +
+          "**Applied today**. Progress shows here once there is one.",
+        visibility: [{ condition: "state", entity: progress, state: noValue }],
       }
     : null;
   const keyTiles = [
@@ -138,10 +153,11 @@ function pgrSection(e) {
   if (gauge && keyTiles.length) {
     summary = [
       { ...gauge, ...HALF },
+      { ...noPgrYet, ...HALF },
       { type: "vertical-stack", cards: keyTiles.map(({ grid_options, ...card }) => card), ...HALF },
     ];
   } else {
-    summary = gauge ? [{ ...gauge, ...FULL }] : keyTiles;
+    summary = gauge ? [{ ...gauge, ...FULL }, { ...noPgrYet, ...FULL }] : keyTiles;
   }
 
   return section("Plant growth regulator", "mdi:sprout", [

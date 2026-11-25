@@ -77,17 +77,28 @@ assert.ok(!entityIds.includes("sensor.other"), "other integrations are ignored")
 assert.ok(!entityIds.includes("pgr_relative_growth"), "disabled entities are skipped");
 assert.ok(!entityIds.includes("last_aerate"), "disabled activity sensors are skipped");
 
-// PGR: gauge beside a stack of three tiles, the missing-data notice, then the form.
+// PGR: gauge (or, with no PGR yet, a prompt) beside a stack of three tiles,
+// the missing-data notice, then the form.
 const [pgr, mowing, renovation] = front.sections.map((s) => s.cards);
+const progressEntity = "sensor.lawn_front_pgr_progress";
 assert.equal(pgr[1].type, "gauge");
 assert.deepEqual(pgr[1].grid_options, { columns: 6 });
-assert.equal(pgr[2].type, "vertical-stack");
+assert.deepEqual(pgr[1].visibility, [
+  { condition: "state", entity: progressEntity, state_not: ["unknown", "unavailable"] },
+]);
+assert.equal(pgr[2].type, "markdown");
+assert.match(pgr[2].content, /No PGR recorded yet/);
 assert.deepEqual(pgr[2].grid_options, { columns: 6 });
-assert.deepEqual(pgr[2].cards.map((c) => c.name), ["GDD since PGR", "Next due", "GDD today"]);
-assert.ok(pgr[2].cards.every((c) => !c.grid_options), "stacked tiles have no grid options");
-assert.equal(pgr[3].type, "markdown");
-assert.equal(pgr[3].show_empty, false);
-assert.match(pgr[3].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
+assert.deepEqual(pgr[2].visibility, [
+  { condition: "state", entity: progressEntity, state: ["unknown", "unavailable"] },
+]);
+assert.equal(pgr[3].type, "vertical-stack");
+assert.deepEqual(pgr[3].grid_options, { columns: 6 });
+assert.deepEqual(pgr[3].cards.map((c) => c.name), ["GDD since PGR", "Next due", "GDD today"]);
+assert.ok(pgr[3].cards.every((c) => !c.grid_options), "stacked tiles have no grid options");
+assert.equal(pgr[4].type, "markdown");
+assert.equal(pgr[4].show_empty, false);
+assert.match(pgr[4].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
 assert.deepEqual(
   formIn(pgr, "date.lawn_front_last_pgr_application").entities.map((r) => r.entity),
   ["date.lawn_front_last_pgr_application", "button.lawn_front_log_pgr_today"],
