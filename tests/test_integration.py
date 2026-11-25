@@ -733,3 +733,72 @@ async def test_log_date_back_dates_dashboard_logging(recorder_mock: Any, hass: H
     newest = (await entries())[-1]
     assert newest["date"] == today.isoformat()
     assert newest["all_day"] is False
+
+
+async def test_fallback_sensor_gdd_for_comparison(recorder_mock: Any, hass: HomeAssistant) -> None:
+    """With a fallback sensor, each lawn also counts GDD from it alone, from recorder statistics."""
+    from homeassistant.components.recorder.models import StatisticMeanType
+    from homeassistant.components.recorder.statistics import async_import_statistics
+    from pytest_homeassistant_custom_component.components.recorder.common import (
+        async_wait_recording_done,
+    )
+
+    fallback = "sensor.bom_temperature"
+    _set_sensor(hass)
+    hass.states.async_set(
+        fallback, "22",
+        {"unit_of_measurement": "°C", "device_class": "temperature", "state_class": "measurement"},
+    )
+    today = dt_util.now().date()
+    for statistic_id, mean in ((TEMP_SENSOR, 20.0), (fallback, 22.0)):
+        rows = []
+        for offset in (3, 2, 1):
+            midnight = dt_util.start_of_local_day(today - timedelta(days=offset))
+            rows += [
+                {"start": dt_util.as_utc(midnight + timedelta(hours=h)), "mean": mean,
+                 "min": mean - 5, "max": mean + 5}
+                for h in range(24)
+            ]
+        async_import_statistics(
+            hass,
+            {
+                "mean_type": StatisticMeanType.ARITHMETIC,
+                "has_sum": False,
+                "name": None,
+                "source": "recorder",
+                "statistic_id": statistic_id,
+                "unit_class": "temperature",
+                "unit_of_measurement": "°C",
+            },
+            rows,
+        )
+    await async_wait_recording_done(hass)
+
+    await _setup(hass, {"fallback_temperature_sensor": fallback})
+    await hass.services.async_call(
+        "date", "set_value",
+        {"entity_id": f"date.{LAWN}_last_pgr_application", "date": (today - timedelta(days=3)).isoformat()},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    # Warm season, base 10: main 3 x (20 - 10) = 30; fallback 3 x (22 - 10) = 36 (plus today so far).
+    main = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr")
+    assert main.attributes["gdd_completed_days"] == pytest.approx(30.0)
+    assert main.attributes["missing_days"] == []
+    compare = hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor")
+    assert compare is not None
+    # No statistics for today yet, so today adds 0 to both.
+    assert float(main.state) == pytest.approx(30.0)
+    assert float(compare.state) == pytest.approx(36.0)
+    assert compare.attributes["difference"] == pytest.approx(6.0)
+    assert compare.attributes["difference_percent"] == pytest.approx(20.0)
+    assert compare.attributes["fallback_sensor"] == fallback
+    assert compare.attributes["missing_days"] == []
+
+
+async def test_no_fallback_comparison_without_a_fallback_sensor(
+    recorder_mock: Any, hass: HomeAssistant
+) -> None:
+    await _setup(hass)
+    assert hass.states.get(f"sensor.{LAWN}_gdd_since_pgr_fallback_sensor") is None

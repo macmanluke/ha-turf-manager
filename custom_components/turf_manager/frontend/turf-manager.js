@@ -162,6 +162,11 @@ function pgrSection(e) {
 
   return section("Plant growth regulator", "mdi:sprout", [
     ...summary,
+    // Same count from the fallback sensor alone (only when one is configured).
+    tile(e["sensor:gdd_since_pgr_fallback"], "GDD since PGR, fallback sensor", {
+      ...FULL,
+      state_content: ["state", "difference"],
+    }),
     missingDataNotice(e["sensor:gdd_since_pgr"]),
     tile(e["sensor:pgr_relative_growth"], "Relative growth", FULL),
     form([

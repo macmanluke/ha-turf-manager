@@ -32,6 +32,13 @@ template:
         device_class: temperature
         state_class: measurement
         state: "{{ states('input_number.dev_outdoor_temperature') | float(0) }}"
+      # A second sensor reading 1.5 °C warmer, to try the fallback sensor comparison.
+      - name: Dev BOM temperature
+        unique_id: dev_bom_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: "{{ (states('input_number.dev_outdoor_temperature') | float(0) + 1.5) | round(1) }}"
   # A fixed 7-day forecast (high 28, low 16) standing in for BOM.
   - weather:
       - name: Dev forecast

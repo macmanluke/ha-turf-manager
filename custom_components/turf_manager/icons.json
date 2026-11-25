@@ -66,6 +66,9 @@
       },
       "application_mix": {
         "default": "mdi:flask-outline"
+      },
+      "gdd_since_pgr_fallback": {
+        "default": "mdi:compare-horizontal"
       }
     },
     "binary_sensor": {

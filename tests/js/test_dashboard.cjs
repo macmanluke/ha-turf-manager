@@ -26,6 +26,7 @@ function mockHass({ lawns = ["front", "back"] } = {}) {
       "last_top_dress", "log_entries", "application_mix"]) {
       add(id("sensor", key), device, key);
     }
+    if (device === "front") add(id("sensor", "gdd_since_pgr_fallback"), device, "gdd_since_pgr_fallback");
     add(id("sensor", "mean_temperature_today"), device, "mean_temperature_today", {
       attributes: { weather_entity: "weather.home" },
     });
@@ -96,9 +97,19 @@ assert.equal(pgr[3].type, "vertical-stack");
 assert.deepEqual(pgr[3].grid_options, { columns: 6 });
 assert.deepEqual(pgr[3].cards.map((c) => c.name), ["GDD since PGR", "Next due", "GDD today"]);
 assert.ok(pgr[3].cards.every((c) => !c.grid_options), "stacked tiles have no grid options");
-assert.equal(pgr[4].type, "markdown");
-assert.equal(pgr[4].show_empty, false);
-assert.match(pgr[4].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
+// The fallback-sensor comparison sits just below, full width, showing the difference.
+assert.deepEqual(pgr[4], {
+  type: "tile",
+  entity: "sensor.lawn_front_gdd_since_pgr_fallback",
+  name: "GDD since PGR, fallback sensor",
+  grid_options: { columns: 12 },
+  state_content: ["state", "difference"],
+});
+assert.equal(pgr[5].type, "markdown");
+assert.equal(pgr[5].show_empty, false);
+assert.match(pgr[5].content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'missing_days'\)/);
+// Without a fallback sensor (the back lawn in this mock) there's no comparison tile.
+assert.ok(!JSON.stringify(config.views[0]).includes("gdd_since_pgr_fallback"));
 assert.deepEqual(
   formIn(pgr, "date.lawn_front_last_pgr_application").entities.map((r) => r.entity),
   ["date.lawn_front_last_pgr_application", "button.lawn_front_log_pgr_today"],

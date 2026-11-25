@@ -338,6 +338,9 @@
       },
       "application_mix": {
         "name": "Application mix"
+      },
+      "gdd_since_pgr_fallback": {
+        "name": "GDD since PGR (fallback sensor)"
       }
     },
     "binary_sensor": {

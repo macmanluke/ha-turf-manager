@@ -133,6 +133,9 @@ class LawnState:
     model_validated: bool = False
     incomplete_days: list[str] = field(default_factory=list)
     missing_days: list[str] = field(default_factory=list)
+    # The same count using only the fallback sensor, for comparison.
+    gdd_fallback_total: float | None = None
+    fallback_missing_days: list[str] = field(default_factory=list)
     last_mow: dict[str, Any] | None = None
     last_application: dict[str, Any] | None = None
     last_activity: dict[str, dict[str, Any]] = field(default_factory=dict)

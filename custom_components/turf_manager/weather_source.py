@@ -119,6 +119,27 @@ class WeatherSource:
                         days[day] = candidate
         return days
 
+    async def async_fetch_fallback_days(
+        self, start: date, end: date
+    ) -> dict[date, dict[str, Any]]:
+        """Daily records from the fallback sensor alone, for comparison."""
+        if not self.fallback:
+            return {}
+        start_dt = _local_midnight(start)
+        end_dt = _local_midnight(end + timedelta(days=1))
+        days = await self._async_entity_days(self.fallback, start_dt, end_dt, "hour")
+        if days is None:
+            days = await self._async_history_days(self.fallback, start_dt, end_dt)
+        return days
+
+    async def async_fetch_fallback_today(self) -> dict[str, Any] | None:
+        """Today so far from the fallback sensor alone."""
+        if not self.fallback:
+            return None
+        return await self._today_for(
+            self.fallback, _local_midnight(dt_util.now().date()), dt_util.utcnow()
+        )
+
     async def async_fetch_today(self) -> dict[str, Any] | None:
         """Running record for today so far (5-minute statistics)."""
         today = dt_util.now().date()

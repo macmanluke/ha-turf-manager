@@ -41,6 +41,7 @@ class LawnSensorDescription(SensorEntityDescription):
     value_fn: Callable[[LawnState], Any]
     attrs_fn: Callable[[LawnState, TurfCoordinator], dict[str, Any]] | None = None
     enabled_fn: Callable[[Lawn], bool] | None = None
+    requires_fallback: bool = False
 
 
 def _start(entry: dict[str, Any] | None) -> datetime | None:
@@ -59,6 +60,22 @@ def _pgr_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]
         "method": coordinator.method,
         "incomplete_days": state.incomplete_days,
         "missing_days": state.missing_days,
+    }
+
+
+def _fallback_attrs(state: LawnState, coordinator: TurfCoordinator) -> dict[str, Any]:
+    difference = None
+    percent = None
+    if state.gdd_total is not None and state.gdd_fallback_total is not None:
+        difference = round(state.gdd_fallback_total - state.gdd_total, 1)
+        if state.gdd_total:
+            percent = round(difference / state.gdd_total * 100, 1)
+    return {
+        "difference": difference,
+        "difference_percent": percent,
+        "main_gdd": state.gdd_total,
+        "fallback_sensor": coordinator.source.fallback,
+        "missing_days": state.fallback_missing_days,
     }
 
 
@@ -151,6 +168,15 @@ LAWN_SENSORS: tuple[LawnSensorDescription, ...] = (
         attrs_fn=_pgr_attrs,
     ),
     LawnSensorDescription(
+        key="gdd_since_pgr_fallback",
+        native_unit_of_measurement=GDD_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda s: s.gdd_fallback_total,
+        attrs_fn=_fallback_attrs,
+        requires_fallback=True,
+    ),
+    LawnSensorDescription(
         key="pgr_progress",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -238,7 +264,11 @@ async def async_setup_entry(
             continue
         async_add_entities(
             [
-                *(LawnSensor(coordinator, subentry_id, description) for description in LAWN_SENSORS),
+                *(
+                    LawnSensor(coordinator, subentry_id, description)
+                    for description in LAWN_SENSORS
+                    if coordinator.source.fallback or not description.requires_fallback
+                ),
                 MixSensor(coordinator, subentry_id),
                 MeanTemperatureSensor(coordinator, subentry_id, "mean_temperature_today", "today"),
                 MeanTemperatureSensor(

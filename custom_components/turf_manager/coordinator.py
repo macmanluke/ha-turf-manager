@@ -77,6 +77,7 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
         self.store = store
         self.source = WeatherSource(hass, site_config(entry))
         self._today_record: dict[str, Any] | None = None
+        self._today_fallback: dict[str, Any] | None = None
         self._forecast: dict[date, tuple[float, float]] = {}
         self._forecast_fetched: datetime | None = None
         self._due_state: dict[str, bool] = {}
@@ -225,6 +226,31 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
             self.store.schedule_save()
 
         self._today_record = await self.source.async_fetch_today()
+        await self._async_sync_fallback(earliest, yesterday)
+
+    async def _async_sync_fallback(self, earliest: date, yesterday: date) -> None:
+        """Keep the fallback sensor's own daily values (record["fb"]) for comparison."""
+        if not self.source.fallback:
+            self._today_fallback = None
+            return
+        missing = []
+        day = earliest
+        while day <= yesterday:
+            record = self.store.get_day(day)
+            if record is not None and not (record.get("fb") or {}).get("final"):
+                missing.append(day)
+            day += timedelta(days=1)
+        if missing:
+            fetched = await self.source.async_fetch_fallback_days(missing[0], missing[-1])
+            now = dt_util.now()
+            for day in missing:
+                record = self.store.get_day(day)
+                fb = fetched.get(day) or {"mean": None, "min": None, "max": None, "hours": 0.0}
+                finalise_at = dt_util.start_of_local_day(day + timedelta(days=1)) + FINALISE_DELAY
+                fb["final"] = now >= finalise_at
+                record["fb"] = fb
+            self.store.schedule_save()
+        self._today_fallback = await self.source.async_fetch_fallback_today()
 
     async def _async_update_forecast(self) -> None:
         if not self.source.weather:
@@ -337,6 +363,7 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
             start_day = entry_date(last)
             state.days_since_pgr = (today - start_day).days
             completed = 0.0
+            fallback = 0.0
             day = start_day
             while day < today:
                 record = self.store.get_day(day)
@@ -346,10 +373,19 @@ class TurfCoordinator(DataUpdateCoordinator[SiteState]):
                 elif hours < MIN_HOURS_COMPLETE:
                     state.incomplete_days.append(day.isoformat())
                 completed += daily_gdd(self._day_temp(record, base), base)
+                fb = (record or {}).get("fb")
+                if not (fb or {}).get("hours"):
+                    state.fallback_missing_days.append(day.isoformat())
+                fallback += daily_gdd(self._day_temp(fb, base), base)
                 day += timedelta(days=1)
             today_part = state.gdd_today if start_day <= today else 0.0
             state.gdd_completed = round(completed, 2)
             state.gdd_total = round(completed + today_part, 2)
+            if self.source.fallback:
+                fb_today = daily_gdd(self._day_temp(self._today_fallback, base), base)
+                state.gdd_fallback_total = round(
+                    fallback + (fb_today if start_day <= today else 0.0), 2
+                )
             state.progress = round(state.gdd_total / lawn.gdd_target * 100, 1)
             state.due = state.gdd_total >= lawn.gdd_target
 

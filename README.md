@@ -72,6 +72,7 @@ Each lawn is a device. Home Assistant builds entity ids from the lawn's area and
 |---|---|
 | `sensor.<lawn>_gdd_since_pgr` | GDD since the last PGR application. Attributes include the days since, the product, and any days with missing or incomplete data. |
 | `sensor.<lawn>_pgr_progress` | % of target |
+| `sensor.<lawn>_gdd_since_pgr_fallback_sensor` | Only with a fallback sensor: the same count using the fallback sensor alone, with the `difference` from the main figure. Handy for seeing how your station and BOM compare. |
 | `sensor.<lawn>_pgr_next_due` | Projected due date, from the forecast first and then the last 7 days' average |
 | `binary_sensor.<lawn>_pgr_due` | On once the target is reached |
 | `sensor.<lawn>_pgr_relative_growth` | UNL clipping-yield model (below 100% suppressed, above 100% rebound). Validated only for cool-season grass at base 0, so it's disabled by default for warm-season lawns. |
@@ -137,7 +138,7 @@ You get a tab for each lawn, plus **History** and **Settings** tabs.
 
 **Each lawn's tab** has three columns:
 
-- **Plant growth regulator:** a progress gauge beside GDD since application, the projected due date and today's GDD. Below them are a date picker for the last application and an **Applied today** button. A notice appears if any days since the application have no temperature data.
+- **Plant growth regulator:** a progress gauge beside GDD since application, the projected due date and today's GDD. With a fallback sensor, the same count from that sensor alone (and the difference) appears just below. Below them are a date picker for the last application and an **Applied today** button. A notice appears if any days since the application have no temperature data.
 - **Mowing and products:** mower type and cut height with a **Log** button, then product and rate with a **Log** button. Each form starts with a **Date**: today unless you pick an earlier day to catch up. Above each are when you last did it and, for products, nitrogen this season. For a mix, pick each product and rate and press **Add**; an "In this mix" card lists them (remove one with ✕, or **Clear**), and **Log** records them together.
 - **Renovation and weather:** when you last scarified, cored and top dressed, an activity picker with a **Log** button, then the daily mean temperatures and your forecast.
 
