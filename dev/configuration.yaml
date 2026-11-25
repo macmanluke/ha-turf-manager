@@ -1,0 +1,48 @@
+# Configuration for a local Home Assistant to try Turf Manager in (see README, Development).
+# Copy this folder to dev_config/ first: dev_config/ is not committed.
+# Location, time zone and units are set during onboarding in the browser.
+
+default_config:
+recorder:
+  purge_keep_days: 30
+automation: !include automations.yaml
+script: !include scripts.yaml
+
+logger:
+  default: warning
+  logs:
+    custom_components.turf_manager: debug
+
+# A temperature you can change by hand, standing in for the Ecowitt sensor.
+input_number:
+  dev_outdoor_temperature:
+    name: Dev outdoor temperature (set me)
+    min: -10
+    max: 45
+    step: 0.5
+    initial: 24
+    unit_of_measurement: "°C"
+    mode: box
+
+template:
+  - sensor:
+      - name: Dev outdoor temperature
+        unique_id: dev_outdoor_temperature
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: "{{ states('input_number.dev_outdoor_temperature') | float(0) }}"
+  # A fixed 7-day forecast (high 28, low 16) standing in for BOM.
+  - weather:
+      - name: Dev forecast
+        unique_id: dev_forecast
+        condition: "sunny"
+        temperature: "{{ states('input_number.dev_outdoor_temperature') | float(0) }}"
+        temperature_unit: "°C"
+        humidity: "50"
+        forecast_daily: >-
+          {% set ns = namespace(days=[]) %}
+          {% for i in range(7) %}
+          {% set ns.days = ns.days + [{'datetime': (today_at('00:00') + timedelta(days=i)).isoformat(), 'condition': 'sunny', 'temperature': 28, 'templow': 16}] %}
+          {% endfor %}
+          {{ ns.days }}

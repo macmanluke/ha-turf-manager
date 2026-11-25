@@ -1,0 +1,11 @@
+{
+  "name": "turf-manager-frontend-tests",
+  "private": true,
+  "description": "Tests for the Turf Manager dashboard strategy and history card (not shipped).",
+  "scripts": {
+    "test": "node test_dashboard.cjs && node test_log_card.cjs && node test_mix_card.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0"
+  }
+}

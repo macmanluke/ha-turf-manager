@@ -1,0 +1,409 @@
+log_pgr_application:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    product:
+      example: "Primo Maxx"
+      selector:
+        text:
+    rate:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+          mode: box
+    notes:
+      selector:
+        text:
+          multiline: true
+
+log_application:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    product:
+      example: "Primo Maxx"
+      selector:
+        text:
+    products:
+      example: '[{"product": "Lawn food", "rate": 2.5}, {"product": "Primo Maxx", "rate": 4}]'
+      selector:
+        object:
+    rate:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+          mode: box
+    rate_unit:
+      selector:
+        select:
+          options:
+            - "g/m²"
+            - "g/100m²"
+            - "kg/100m²"
+            - "kg/ha"
+            - "lb/1000ft²"
+            - "oz/1000ft²"
+            - "mL/m²"
+            - "mL/100m²"
+            - "L/100m²"
+            - "L/ha"
+            - "fl oz/1000ft²"
+            - "fl oz/acre"
+    area:
+      selector:
+        number:
+          min: 0
+          max: 1000000
+          unit_of_measurement: "m²"
+          mode: box
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+log_mow:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    mower_type:
+      selector:
+        select:
+          translation_key: mower_type
+          options:
+            - rotary
+            - cylinder
+            - robotic
+            - other
+    height:
+      selector:
+        number:
+          min: 0
+          max: 200
+          step: any
+          mode: box
+    height_unit:
+      selector:
+        select:
+          translation_key: height_unit
+          options:
+            - mm
+            - in
+    clippings:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: any
+          unit_of_measurement: L
+          mode: box
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+log_activity:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    activity:
+      required: true
+      selector:
+        select:
+          translation_key: activity
+          options:
+            - scarify
+            - core
+            - aerate
+            - top_dress
+            - level
+            - overseed
+            - soil_test
+            - water
+            - other
+    details:
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+update_entry:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    datetime:
+      selector:
+        datetime:
+    notes:
+      selector:
+        text:
+          multiline: true
+    rate:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+          mode: box
+    rate_unit:
+      selector:
+        select:
+          options:
+            - "g/m²"
+            - "g/100m²"
+            - "kg/100m²"
+            - "kg/ha"
+            - "lb/1000ft²"
+            - "oz/1000ft²"
+            - "mL/m²"
+            - "mL/100m²"
+            - "L/100m²"
+            - "L/ha"
+            - "fl oz/1000ft²"
+            - "fl oz/acre"
+    area:
+      selector:
+        number:
+          min: 0
+          max: 1000000
+          unit_of_measurement: "m²"
+          mode: box
+    mower_type:
+      selector:
+        select:
+          translation_key: mower_type
+          options:
+            - rotary
+            - cylinder
+            - robotic
+            - other
+    height:
+      selector:
+        number:
+          min: 0
+          max: 200
+          step: any
+          mode: box
+    height_unit:
+      selector:
+        select:
+          translation_key: height_unit
+          options:
+            - mm
+            - in
+    clippings:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: any
+          unit_of_measurement: L
+          mode: box
+    details:
+      selector:
+        text:
+
+delete_entry:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+
+set_daily_temperature:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: turf_manager
+    date:
+      required: true
+      selector:
+        date:
+    mean:
+      selector:
+        number:
+          min: -40
+          max: 60
+          step: 0.1
+          unit_of_measurement: "°C"
+          mode: box
+    min:
+      selector:
+        number:
+          min: -40
+          max: 60
+          step: 0.1
+          unit_of_measurement: "°C"
+          mode: box
+    max:
+      selector:
+        number:
+          min: -40
+          max: 60
+          step: 0.1
+          unit_of_measurement: "°C"
+          mode: box
+
+recalculate:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: turf_manager
+    start_date:
+      selector:
+        date:
+    end_date:
+      selector:
+        date:
+
+get_history:
+  fields:
+    device_id:
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    kind:
+      selector:
+        select:
+          multiple: true
+          translation_key: kind
+          options:
+            - application
+            - mow
+            - activity
+    start_date:
+      selector:
+        date:
+    end_date:
+      selector:
+        date:
+    include_gdd:
+      default: false
+      selector:
+        boolean:
+
+export_csv:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: turf_manager
+
+mix_add:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    product:
+      example: "Lawn food"
+      selector:
+        text:
+    rate:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+          mode: box
+    rate_unit:
+      selector:
+        select:
+          options:
+            - "g/m²"
+            - "g/100m²"
+            - "kg/100m²"
+            - "kg/ha"
+            - "lb/1000ft²"
+            - "oz/1000ft²"
+            - "mL/m²"
+            - "mL/100m²"
+            - "L/100m²"
+            - "L/ha"
+            - "fl oz/1000ft²"
+            - "fl oz/acre"
+
+mix_remove:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager
+    product:
+      required: true
+      selector:
+        text:
+
+mix_clear:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: turf_manager

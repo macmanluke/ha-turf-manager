@@ -1,0 +1,24 @@
+# Third-party reference material (copyrighted, contains VBA macros) - not distributed
+Reference/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Local Home Assistant dev instance
+dev_config/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Frontend test dependencies
+node_modules/

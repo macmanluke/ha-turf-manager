@@ -1,0 +1,21 @@
+{
+  "domain": "turf_manager",
+  "name": "Turf Manager",
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
+  "codeowners": [
+    "@macmanluke"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "recorder"
+  ],
+  "documentation": "https://github.com/macmanluke/ha-turf-manager",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/macmanluke/ha-turf-manager/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

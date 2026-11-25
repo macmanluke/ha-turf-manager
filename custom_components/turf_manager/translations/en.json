@@ -1,0 +1,815 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Turf Manager site",
+        "description": "Choose where temperatures come from. A local weather station (e.g. Ecowitt) is best; use a BOM sensor as the fallback.",
+        "data": {
+          "name": "Site name",
+          "temperature_sensor": "Temperature sensor",
+          "fallback_temperature_sensor": "Fallback temperature sensor",
+          "weather_entity": "Weather entity for forecasts",
+          "gdd_method": "Daily temperature method",
+          "season_start_month": "Season starts in",
+          "height_unit": "Cut height unit",
+          "humidity_sensor": "Humidity sensor",
+          "wind_sensor": "Wind speed sensor",
+          "rain_sensor": "Rain sensor"
+        },
+        "data_description": {
+          "temperature_sensor": "Outdoor air temperature. It needs a state class of 'measurement' so Home Assistant keeps long-term statistics (Ecowitt and BOM sensors do).",
+          "fallback_temperature_sensor": "Used for any day the main sensor has less than 18 hours of data.",
+          "weather_entity": "Used to project the next PGR due date.",
+          "gdd_method": "Daily mean uses every reading through the day and is the most accurate.",
+          "season_start_month": "Seasonal totals such as nitrogen applied reset on the 1st of this month.",
+          "humidity_sensor": "Optional. Recorded with each application (spray records).",
+          "wind_sensor": "Optional. Recorded with each application (spray records).",
+          "rain_sensor": "Optional. Recorded with each application (spray records)."
+        }
+      },
+      "lawn": {
+        "title": "Your first lawn",
+        "description": "Add more lawns later from the integration page.",
+        "data": {
+          "name": "Lawn name",
+          "grass_type": "Grass type",
+          "area": "Area",
+          "gdd_target": "PGR GDD target",
+          "add_pgr_preset": "Add Primo Maxx (trinexapac-ethyl) to the product library"
+        },
+        "data_description": {
+          "grass_type": "Warm season uses a 10 °C base (daily GDD = average temperature − 10). Cool season uses 0 °C.",
+          "gdd_target": "GDD between PGR applications. 200 is the usual starting point for trinexapac-ethyl."
+        }
+      },
+      "lawn_base": {
+        "title": "Base temperature",
+        "data": {
+          "base_temperature": "Base temperature"
+        }
+      }
+    },
+    "error": {
+      "same_as_primary": "The fallback sensor must be different from the main sensor."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Site settings",
+        "data": {
+          "temperature_sensor": "Temperature sensor",
+          "fallback_temperature_sensor": "Fallback temperature sensor",
+          "weather_entity": "Weather entity for forecasts",
+          "gdd_method": "Daily temperature method",
+          "season_start_month": "Season starts in",
+          "height_unit": "Cut height unit",
+          "humidity_sensor": "Humidity sensor",
+          "wind_sensor": "Wind speed sensor",
+          "rain_sensor": "Rain sensor"
+        },
+        "data_description": {
+          "temperature_sensor": "Outdoor air temperature with a state class of 'measurement'.",
+          "fallback_temperature_sensor": "Used for any day the main sensor has less than 18 hours of data.",
+          "gdd_method": "Changing this recalculates every lawn immediately."
+        }
+      }
+    },
+    "error": {
+      "same_as_primary": "The fallback sensor must be different from the main sensor."
+    }
+  },
+  "config_subentries": {
+    "lawn": {
+      "initiate_flow": {
+        "user": "Add lawn",
+        "reconfigure": "Edit lawn"
+      },
+      "entry_type": "Lawn",
+      "step": {
+        "user": {
+          "title": "Add a lawn",
+          "data": {
+            "name": "Lawn name",
+            "grass_type": "Grass type",
+            "area": "Area",
+            "gdd_target": "PGR GDD target"
+          },
+          "data_description": {
+            "grass_type": "Warm season uses a 10 °C base (daily GDD = average temperature − 10). Cool season uses 0 °C.",
+            "gdd_target": "GDD between PGR applications. 200 is the usual starting point."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit lawn",
+          "data": {
+            "name": "Lawn name",
+            "grass_type": "Grass type",
+            "area": "Area",
+            "gdd_target": "PGR GDD target",
+            "pgr_product": "PGR product"
+          },
+          "data_description": {
+            "grass_type": "Changing grass type resets the base temperature to that type's default.",
+            "pgr_product": "Leave empty to use the first PGR in the product library."
+          }
+        },
+        "base": {
+          "title": "Base temperature",
+          "data": {
+            "base_temperature": "Base temperature"
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Lawn updated."
+      }
+    },
+    "product": {
+      "initiate_flow": {
+        "user": "Add product",
+        "reconfigure": "Edit product"
+      },
+      "entry_type": "Product",
+      "step": {
+        "user": {
+          "title": "Add a product",
+          "description": "Start from a preset or a blank product. Presets don't include rates: always use the label rate for your turf and region.",
+          "data": {
+            "preset": "Preset"
+          }
+        },
+        "details": {
+          "title": "Product details",
+          "data": {
+            "name": "Name",
+            "product_type": "Type",
+            "active_ingredient": "Active ingredient",
+            "rate": "Default rate",
+            "rate_unit": "Rate unit",
+            "n_percent": "Nitrogen (N)",
+            "p_percent": "Phosphorus (P)",
+            "k_percent": "Potassium (K)",
+            "density": "Density (liquids)",
+            "gdd_interval": "PGR GDD interval",
+            "pgr_model": "PGR growth model",
+            "moa_group": "Mode of action group",
+            "notes": "Notes"
+          },
+          "data_description": {
+            "n_percent": "Percent by weight, from the label analysis. Used for the seasonal nitrogen total.",
+            "density": "Used to convert liquid rates to weight for nutrient totals. Defaults to 1.0.",
+            "gdd_interval": "PGRs only. Choosing this product for a lawn sets its GDD target to this.",
+            "pgr_model": "PGRs only. Enables the relative growth sensor (UNL model).",
+            "moa_group": "Herbicide or fungicide group (e.g. HRAC 'B'), so you can rotate modes of action."
+          }
+        }
+      },
+      "error": {
+        "name_exists": "A product with this name already exists."
+      },
+      "abort": {
+        "reconfigure_successful": "Product updated."
+      }
+    }
+  },
+  "selector": {
+    "gdd_method": {
+      "options": {
+        "mean": "Daily mean (recommended)",
+        "minmax": "Average of daily min and max",
+        "minmax_floor": "Min/max with the low floored at the base (UNL Hi-Lo)"
+      }
+    },
+    "month": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    },
+    "height_unit": {
+      "options": {
+        "auto": "Automatic (from unit system)",
+        "mm": "Millimetres",
+        "in": "Inches"
+      }
+    },
+    "grass_type": {
+      "options": {
+        "warm": "Warm season (base 10 °C)",
+        "cool": "Cool season (base 0 °C)",
+        "custom": "Custom base temperature"
+      }
+    },
+    "product_preset": {
+      "options": {
+        "custom": "Blank product",
+        "trinexapac": "Primo Maxx (trinexapac-ethyl), 200 GDD",
+        "paclobutrazol": "Paclobutrazol (e.g. Trimmit), 250 GDD",
+        "prohexadione": "Anuew (prohexadione-Ca), 300 GDD",
+        "granular_fertiliser": "Granular fertiliser",
+        "liquid_fertiliser": "Liquid fertiliser",
+        "herbicide": "Herbicide"
+      }
+    },
+    "product_type": {
+      "options": {
+        "fertiliser": "Fertiliser",
+        "herbicide": "Herbicide",
+        "insecticide": "Insecticide",
+        "fungicide": "Fungicide",
+        "pgr": "Plant growth regulator",
+        "wetting_agent": "Wetting agent",
+        "biostimulant": "Biostimulant",
+        "other": "Other"
+      }
+    },
+    "pgr_model": {
+      "options": {
+        "none": "None",
+        "trinexapac": "Trinexapac-ethyl",
+        "paclobutrazol": "Paclobutrazol",
+        "prohexadione": "Prohexadione-calcium"
+      }
+    },
+    "mower_type": {
+      "options": {
+        "rotary": "Rotary",
+        "cylinder": "Cylinder (reel)",
+        "robotic": "Robotic",
+        "other": "Other"
+      }
+    },
+    "activity": {
+      "options": {
+        "scarify": "Scarify",
+        "core": "Core (hollow tine)",
+        "aerate": "Aerate (solid tine)",
+        "top_dress": "Top dress",
+        "level": "Level",
+        "overseed": "Overseed",
+        "soil_test": "Soil test",
+        "water": "Water",
+        "other": "Other"
+      }
+    },
+    "kind": {
+      "options": {
+        "application": "Applications",
+        "mow": "Mowing",
+        "activity": "Activities"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mean_temperature_today": {
+        "name": "Mean temperature today"
+      },
+      "mean_temperature_yesterday": {
+        "name": "Mean temperature yesterday"
+      },
+      "gdd_since_pgr": {
+        "name": "GDD since PGR"
+      },
+      "pgr_progress": {
+        "name": "PGR progress"
+      },
+      "gdd_today": {
+        "name": "GDD today"
+      },
+      "pgr_next_due": {
+        "name": "PGR next due"
+      },
+      "pgr_relative_growth": {
+        "name": "PGR relative growth"
+      },
+      "last_mowed": {
+        "name": "Last mowed"
+      },
+      "last_cut_height": {
+        "name": "Last cut height"
+      },
+      "last_application": {
+        "name": "Last application"
+      },
+      "nitrogen_season": {
+        "name": "Nitrogen this season"
+      },
+      "last_scarify": {
+        "name": "Last scarified"
+      },
+      "last_core": {
+        "name": "Last cored"
+      },
+      "last_aerate": {
+        "name": "Last aerated"
+      },
+      "last_top_dress": {
+        "name": "Last top dressed"
+      },
+      "last_level": {
+        "name": "Last levelled"
+      },
+      "last_overseed": {
+        "name": "Last overseeded"
+      },
+      "last_soil_test": {
+        "name": "Last soil test"
+      },
+      "last_water": {
+        "name": "Last watered"
+      },
+      "last_other": {
+        "name": "Last other activity"
+      },
+      "log_entries": {
+        "name": "Log entries"
+      },
+      "application_mix": {
+        "name": "Application mix"
+      }
+    },
+    "binary_sensor": {
+      "pgr_due": {
+        "name": "PGR due"
+      }
+    },
+    "number": {
+      "gdd_target": {
+        "name": "PGR GDD target"
+      },
+      "base_temperature": {
+        "name": "Base temperature"
+      },
+      "cut_height": {
+        "name": "Cut height"
+      },
+      "application_rate": {
+        "name": "Application rate"
+      }
+    },
+    "select": {
+      "pgr_product": {
+        "name": "PGR product"
+      },
+      "product": {
+        "name": "Product"
+      },
+      "mower_type": {
+        "name": "Mower type",
+        "state": {
+          "rotary": "Rotary",
+          "cylinder": "Cylinder (reel)",
+          "robotic": "Robotic",
+          "other": "Other"
+        }
+      },
+      "activity": {
+        "name": "Activity",
+        "state": {
+          "scarify": "Scarify",
+          "core": "Core (hollow tine)",
+          "aerate": "Aerate (solid tine)",
+          "top_dress": "Top dress",
+          "level": "Level",
+          "overseed": "Overseed",
+          "soil_test": "Soil test",
+          "water": "Water",
+          "other": "Other"
+        }
+      }
+    },
+    "date": {
+      "last_pgr_application": {
+        "name": "Last PGR application"
+      },
+      "log_date": {
+        "name": "Log date"
+      }
+    },
+    "button": {
+      "log_pgr_today": {
+        "name": "Log PGR applied today"
+      },
+      "log_mow": {
+        "name": "Log mow"
+      },
+      "log_application": {
+        "name": "Log application"
+      },
+      "log_activity": {
+        "name": "Log activity"
+      },
+      "add_to_mix": {
+        "name": "Add to mix"
+      },
+      "clear_mix": {
+        "name": "Clear mix"
+      },
+      "save_default_rate": {
+        "name": "Save rate as product default"
+      }
+    },
+    "calendar": {
+      "lawn_calendar": {
+        "name": "Lawn care"
+      }
+    }
+  },
+  "services": {
+    "log_pgr_application": {
+      "name": "Log PGR application",
+      "description": "Logs a plant growth regulator application and restarts the GDD count.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn(s) treated."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date applied. Defaults to now."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "When it was applied, if you want the time recorded."
+        },
+        "product": {
+          "name": "Product",
+          "description": "PGR product name. Defaults to the lawn's PGR product."
+        },
+        "rate": {
+          "name": "Rate",
+          "description": "Rate in the product's unit. Defaults to the product's default rate."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        }
+      }
+    },
+    "log_application": {
+      "name": "Log application",
+      "description": "Logs a product application, or several products applied together (a mix).",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn(s) treated."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name from your product library. Use this or Products."
+        },
+        "rate": {
+          "name": "Rate",
+          "description": "Defaults to the product's default rate."
+        },
+        "rate_unit": {
+          "name": "Rate unit",
+          "description": "Defaults to the product's rate unit."
+        },
+        "area": {
+          "name": "Area",
+          "description": "Area treated. Defaults to the lawn's area."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date applied. Defaults to now."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "When it was applied, if you want the time recorded."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        },
+        "products": {
+          "name": "Products (mix)",
+          "description": "For several products applied together: a list of product names with optional rate and rate_unit, e.g. [{product: Lawn food, rate: 2.5}, {product: Primo Maxx, rate: 4}]."
+        }
+      }
+    },
+    "log_mow": {
+      "name": "Log mow",
+      "description": "Logs a mow with the mower type and cut height.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn(s) mown."
+        },
+        "mower_type": {
+          "name": "Mower type",
+          "description": "Rotary, cylinder, robotic or other."
+        },
+        "height": {
+          "name": "Cut height",
+          "description": "Height of cut."
+        },
+        "height_unit": {
+          "name": "Height unit",
+          "description": "Unit of the cut height. Defaults to the site's setting."
+        },
+        "clippings": {
+          "name": "Clippings",
+          "description": "Clipping volume in litres. Tracking this is the best way to fine-tune the PGR GDD target."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date mown. Defaults to now."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "When it was mown."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        }
+      }
+    },
+    "log_activity": {
+      "name": "Log activity",
+      "description": "Logs a lawn care activity such as scarifying, coring or top dressing.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn(s)."
+        },
+        "activity": {
+          "name": "Activity",
+          "description": "What was done."
+        },
+        "details": {
+          "name": "Details",
+          "description": "Short details, e.g. '5 mm sand' or '50 mm spacing'."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date done. Defaults to now."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "When it was done."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        }
+      }
+    },
+    "update_entry": {
+      "name": "Update log entry",
+      "description": "Changes a logged entry. Entry ids are shown in calendar event details and returned by Get history.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry id",
+          "description": "The entry to change."
+        },
+        "date": {
+          "name": "Date",
+          "description": "New date (all day)."
+        },
+        "datetime": {
+          "name": "Date and time",
+          "description": "New date and time."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "New notes."
+        },
+        "rate": {
+          "name": "Rate",
+          "description": "New rate (applications)."
+        },
+        "rate_unit": {
+          "name": "Rate unit",
+          "description": "New rate unit (applications)."
+        },
+        "area": {
+          "name": "Area",
+          "description": "New area treated (applications)."
+        },
+        "mower_type": {
+          "name": "Mower type",
+          "description": "New mower type (mows)."
+        },
+        "height": {
+          "name": "Cut height",
+          "description": "New cut height (mows)."
+        },
+        "height_unit": {
+          "name": "Height unit",
+          "description": "Unit of the new cut height."
+        },
+        "clippings": {
+          "name": "Clippings",
+          "description": "New clipping volume in litres (mows)."
+        },
+        "details": {
+          "name": "Details",
+          "description": "New details (activities)."
+        }
+      }
+    },
+    "delete_entry": {
+      "name": "Delete log entry",
+      "description": "Deletes a logged entry. You can also delete events from the lawn's calendar.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry id",
+          "description": "The entry to delete."
+        }
+      }
+    },
+    "set_daily_temperature": {
+      "name": "Set daily temperature",
+      "description": "Enters a day's temperature by hand, replacing sensor data for that day.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Site",
+          "description": "Only needed if you have more than one site."
+        },
+        "date": {
+          "name": "Date",
+          "description": "The day to set."
+        },
+        "mean": {
+          "name": "Mean",
+          "description": "Daily mean temperature."
+        },
+        "min": {
+          "name": "Minimum",
+          "description": "Daily minimum temperature."
+        },
+        "max": {
+          "name": "Maximum",
+          "description": "Daily maximum temperature."
+        }
+      }
+    },
+    "recalculate": {
+      "name": "Recalculate temperatures",
+      "description": "Fetches daily temperatures again (e.g. after changing sensors). Manually entered days are kept.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Site",
+          "description": "Only needed if you have more than one site."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "Defaults to 30 days before the end date."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Defaults to yesterday."
+        }
+      }
+    },
+    "get_history": {
+      "name": "Get history",
+      "description": "Returns logged entries, and optionally daily GDD, for scripts, templates and dashboards.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "Limit to these lawns."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Limit to these kinds of entry."
+        },
+        "start_date": {
+          "name": "Start date",
+          "description": "Earliest date."
+        },
+        "end_date": {
+          "name": "End date",
+          "description": "Latest date."
+        },
+        "include_gdd": {
+          "name": "Include daily GDD",
+          "description": "Also return per-day temperature and GDD for each lawn."
+        }
+      }
+    },
+    "export_csv": {
+      "name": "Export to CSV",
+      "description": "Writes the log and the daily temperature ledger to CSV files in /config/turf_manager.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Site",
+          "description": "Only needed if you have more than one site."
+        }
+      }
+    },
+    "mix_add": {
+      "name": "Add to mix",
+      "description": "Adds a product to the lawn's mix on the dashboard. The next Log application logs the whole mix as one application.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn whose mix to add to."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name. Defaults to the product selected on the dashboard."
+        },
+        "rate": {
+          "name": "Rate",
+          "description": "Defaults to the rate on the dashboard, then the product's default rate."
+        },
+        "rate_unit": {
+          "name": "Rate unit",
+          "description": "Defaults to the product's rate unit."
+        }
+      }
+    },
+    "mix_remove": {
+      "name": "Remove from mix",
+      "description": "Removes a product from the lawn's mix.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn whose mix to change."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name or id to remove."
+        }
+      }
+    },
+    "mix_clear": {
+      "name": "Clear mix",
+      "description": "Empties the lawn's mix.",
+      "fields": {
+        "device_id": {
+          "name": "Lawn",
+          "description": "The lawn whose mix to clear."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "site_not_found": {
+      "message": "That Turf Manager site isn't loaded."
+    },
+    "site_required": {
+      "message": "You have more than one Turf Manager site. Choose which one."
+    },
+    "not_a_lawn": {
+      "message": "Device {device_id} isn't a Turf Manager lawn."
+    },
+    "entry_not_found": {
+      "message": "No log entry with id {entry_id}."
+    },
+    "product_not_found": {
+      "message": "There's no product called {product}. Available: {available}."
+    },
+    "not_a_pgr": {
+      "message": "{product} isn't a plant growth regulator."
+    },
+    "pgr_already_logged": {
+      "message": "A PGR application is already logged for {date}."
+    },
+    "unknown_activity": {
+      "message": "Unknown activity: {activity}."
+    },
+    "no_product_selected": {
+      "message": "Choose a product first. Add products from the Turf Manager integration page."
+    },
+    "manual_day_needs_values": {
+      "message": "Enter a mean temperature, or both a minimum and a maximum."
+    },
+    "cannot_delete_projection": {
+      "message": "The projected PGR date is calculated and can't be deleted. Log an application instead."
+    },
+    "mix_empty": {
+      "message": "Add at least one product."
+    },
+    "mix_rate_edit": {
+      "message": "A mix's rates can't be edited. Delete it and log it again."
+    },
+    "no_rate": {
+      "message": "Enter a rate first."
+    },
+    "log_date_in_future": {
+      "message": "The log date can't be in the future."
+    }
+  },
+  "issues": {
+    "no_statistics": {
+      "title": "Temperature sensor has no long-term statistics",
+      "description": "Turf Manager reads daily temperatures from long-term statistics, but {entity_id} doesn't have a state class of 'measurement'. Only about the last 10 days of history can be used, so back-dated PGR applications may be missing temperatures. Choose a different sensor, or set the sensor's state class to 'measurement' (for example with a template sensor)."
+    }
+  }
+}

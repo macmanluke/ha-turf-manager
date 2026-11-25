@@ -1,0 +1,16 @@
+# Local Home Assistant for developing Turf Manager.
+#   docker compose -f docker-compose.dev.yml up -d
+# Then open http://localhost:8123. Restart the container to pick up code changes:
+#   docker compose -f docker-compose.dev.yml restart
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: turf-manager-dev
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./dev_config:/config
+      - ./custom_components/turf_manager:/config/custom_components/turf_manager
+      - ./blueprints/automation/turf_manager:/config/blueprints/automation/turf_manager
+      - /etc/localtime:/etc/localtime:ro

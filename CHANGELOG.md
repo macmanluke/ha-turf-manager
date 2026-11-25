@@ -1,0 +1,13 @@
+# Changelog
+
+## 0.1.0 (unreleased)
+
+First release.
+
+- GDD tracking for plant growth regulators: true daily mean (or min/max) from Home Assistant's long-term statistics, fallback sensor, manual days, warm- and cool-season base temperatures, editable targets.
+- Projected next PGR date from the forecast; PGR due sensor and event; reminder blueprint with a "Mark applied" button.
+- UNL relative-growth model for trinexapac-ethyl, paclobutrazol and prohexadione-Ca.
+- Lawn care log: product applications (including mixes of several products), mowing (mower type, cut height in mm or inches, clippings) and renovation activities, with back-dating.
+- Product library with presets, default rates and N-P-K for seasonal nitrogen totals.
+- Calendar per lawn, logbook entries, history and CSV export actions.
+- Bundled dashboard (Settings → Dashboards → Add dashboard → Turf Manager) with history table and mix cards.

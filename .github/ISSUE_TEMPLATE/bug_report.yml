@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in Turf Manager isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.11.3"
+    validations:
+      required: true
+  - type: input
+    id: tm_version
+    attributes:
+      label: Turf Manager version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or diagnostics
+      description: >-
+        Relevant lines from Settings → System → Logs, or the integration's diagnostics
+        (integration page → ⋮ → Download diagnostics). Remove anything you'd rather not share.
+      render: text

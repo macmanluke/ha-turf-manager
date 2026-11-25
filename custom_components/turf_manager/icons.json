@@ -1,0 +1,185 @@
+{
+  "entity": {
+    "sensor": {
+      "mean_temperature_today": {
+        "default": "mdi:thermometer"
+      },
+      "mean_temperature_yesterday": {
+        "default": "mdi:thermometer"
+      },
+      "gdd_since_pgr": {
+        "default": "mdi:sprout"
+      },
+      "pgr_progress": {
+        "default": "mdi:progress-clock"
+      },
+      "gdd_today": {
+        "default": "mdi:sun-thermometer"
+      },
+      "pgr_next_due": {
+        "default": "mdi:calendar-clock"
+      },
+      "pgr_relative_growth": {
+        "default": "mdi:chart-bell-curve"
+      },
+      "last_mowed": {
+        "default": "mdi:mower"
+      },
+      "last_cut_height": {
+        "default": "mdi:arrow-collapse-vertical"
+      },
+      "last_application": {
+        "default": "mdi:spray"
+      },
+      "nitrogen_season": {
+        "default": "mdi:leaf"
+      },
+      "last_scarify": {
+        "default": "mdi:texture"
+      },
+      "last_core": {
+        "default": "mdi:dots-grid"
+      },
+      "last_aerate": {
+        "default": "mdi:dots-hexagon"
+      },
+      "last_top_dress": {
+        "default": "mdi:shovel"
+      },
+      "last_level": {
+        "default": "mdi:format-align-bottom"
+      },
+      "last_overseed": {
+        "default": "mdi:seed"
+      },
+      "last_soil_test": {
+        "default": "mdi:test-tube"
+      },
+      "last_water": {
+        "default": "mdi:sprinkler-variant"
+      },
+      "last_other": {
+        "default": "mdi:grass"
+      },
+      "log_entries": {
+        "default": "mdi:format-list-bulleted"
+      },
+      "application_mix": {
+        "default": "mdi:flask-outline"
+      }
+    },
+    "binary_sensor": {
+      "pgr_due": {
+        "default": "mdi:sprout-outline",
+        "state": {
+          "on": "mdi:bell-alert"
+        }
+      }
+    },
+    "number": {
+      "gdd_target": {
+        "default": "mdi:target"
+      },
+      "base_temperature": {
+        "default": "mdi:thermometer-low"
+      },
+      "cut_height": {
+        "default": "mdi:arrow-collapse-vertical"
+      },
+      "application_rate": {
+        "default": "mdi:beaker-outline"
+      }
+    },
+    "select": {
+      "pgr_product": {
+        "default": "mdi:bottle-tonic-outline"
+      },
+      "product": {
+        "default": "mdi:bottle-tonic"
+      },
+      "mower_type": {
+        "default": "mdi:mower-on"
+      },
+      "activity": {
+        "default": "mdi:format-list-checks"
+      }
+    },
+    "date": {
+      "last_pgr_application": {
+        "default": "mdi:calendar-check"
+      },
+      "log_date": {
+        "default": "mdi:calendar-edit"
+      }
+    },
+    "button": {
+      "log_pgr_today": {
+        "default": "mdi:sprout"
+      },
+      "log_mow": {
+        "default": "mdi:mower"
+      },
+      "log_application": {
+        "default": "mdi:spray"
+      },
+      "log_activity": {
+        "default": "mdi:clipboard-check-outline"
+      },
+      "add_to_mix": {
+        "default": "mdi:playlist-plus"
+      },
+      "clear_mix": {
+        "default": "mdi:playlist-remove"
+      },
+      "save_default_rate": {
+        "default": "mdi:content-save-outline"
+      }
+    },
+    "calendar": {
+      "lawn_calendar": {
+        "default": "mdi:calendar-blank"
+      }
+    }
+  },
+  "services": {
+    "log_pgr_application": {
+      "service": "mdi:sprout"
+    },
+    "log_application": {
+      "service": "mdi:spray"
+    },
+    "log_mow": {
+      "service": "mdi:mower"
+    },
+    "log_activity": {
+      "service": "mdi:clipboard-check-outline"
+    },
+    "update_entry": {
+      "service": "mdi:pencil"
+    },
+    "delete_entry": {
+      "service": "mdi:delete"
+    },
+    "set_daily_temperature": {
+      "service": "mdi:thermometer-check"
+    },
+    "recalculate": {
+      "service": "mdi:refresh"
+    },
+    "get_history": {
+      "service": "mdi:history"
+    },
+    "export_csv": {
+      "service": "mdi:file-delimited"
+    },
+    "mix_add": {
+      "service": "mdi:playlist-plus"
+    },
+    "mix_remove": {
+      "service": "mdi:playlist-minus"
+    },
+    "mix_clear": {
+      "service": "mdi:playlist-remove"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+blueprint:
+  name: Turf Manager - PGR due reminder
+  description: >-
+    Sends a phone notification each morning once a lawn's plant growth regulator
+    is nearly due (or overdue), with a "Mark applied today" button that logs the
+    application in Turf Manager and restarts the GDD count.
+  domain: automation
+  source_url: https://github.com/macmanluke/ha-turf-manager/blob/main/blueprints/automation/turf_manager/pgr_due_notify.yaml
+  input:
+    progress_sensor:
+      name: PGR progress sensor
+      description: The lawn's "PGR progress" sensor (e.g. sensor.front_lawn_pgr_progress).
+      selector:
+        entity:
+          filter:
+            - integration: turf_manager
+              domain: sensor
+    notify_device:
+      name: Phone
+      description: The Home Assistant companion app device to notify.
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+    threshold:
+      name: Start reminding at
+      description: Percentage of the GDD target. 100 means only when it's due.
+      default: 90
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+    notify_time:
+      name: Time of day
+      default: "08:00:00"
+      selector:
+        time: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  progress_sensor: !input progress_sensor
+  threshold: !input threshold
+
+triggers:
+  - trigger: time
+    at: !input notify_time
+
+conditions:
+  - condition: template
+    value_template: "{{ states(progress_sensor) | float(0) >= threshold | float(100) }}"
+
+actions:
+  - variables:
+      lawn_device: "{{ device_id(progress_sensor) }}"
+      lawn: "{{ device_attr(lawn_device, 'name_by_user') or device_attr(lawn_device, 'name') }}"
+      progress: "{{ states(progress_sensor) | float(0) }}"
+      gdd: "{{ state_attr(progress_sensor, 'gdd') | float(0) }}"
+      target: "{{ state_attr(progress_sensor, 'target') | float(0) }}"
+      projected_due: "{{ state_attr(progress_sensor, 'projected_due') }}"
+      action_applied: "TURF_PGR_APPLIED_{{ context.id }}"
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: "{{ lawn }}: PGR {{ 'due now' if progress >= 100 else 'due soon' }}"
+    message: >-
+      {{ gdd | round(0) | int }} of {{ target | round(0) | int }} GDD
+      ({{ progress | round(0) | int }}%).
+      {%- if progress < 100 and projected_due %}
+      Projected due {{ strptime(projected_due, '%Y-%m-%d').strftime('%a %d %b') }}.
+      {%- endif %}
+    data:
+      tag: "turf_pgr_{{ lawn_device }}"
+      actions:
+        - action: "{{ action_applied }}"
+          title: Mark applied today
+  - wait_for_trigger:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: "{{ action_applied }}"
+    timeout: "20:00:00"
+    continue_on_timeout: false
+  - action: turf_manager.log_pgr_application
+    data:
+      device_id: "{{ lawn_device }}"
