@@ -180,18 +180,24 @@ const comparisonTiles = (sectionIndex) =>
 assert.deepEqual(
   comparisonTiles(1).map((c) => [c.entity, c.name]),
   [
-    ["sensor.lawn_front_gdd_since_pgr_mean", "Main sensor · daily mean"],
-    ["sensor.lawn_front_gdd_since_pgr_minmax", "Main sensor · min/max"],
-    ["sensor.lawn_front_gdd_since_pgr_fallback", "Fallback sensor · daily mean"],
-    ["sensor.lawn_front_gdd_since_pgr_fallback_minmax", "Fallback sensor · min/max"],
+    ["sensor.lawn_front_gdd_since_pgr_mean", "Main sensor, daily-mean method"],
+    ["sensor.lawn_front_gdd_since_pgr_minmax", "Main sensor, min/max method"],
+    ["sensor.lawn_front_gdd_since_pgr_fallback", "Fallback sensor, daily-mean method"],
+    ["sensor.lawn_front_gdd_since_pgr_fallback_minmax", "Fallback sensor, min/max method"],
   ],
 );
 assert.ok(comparisonTiles(1).every((c) => JSON.stringify(c.state_content) === '["state","difference"]'));
 assert.deepEqual(
   comparisonTiles(0).map((c) => c.name),
-  ["Main sensor · daily mean", "Main sensor · min/max"],
+  ["Main sensor, daily-mean method", "Main sensor, min/max method"],
 );
-assert.ok(settings.sections[1].cards.some((c) => c.type === "heading" && c.heading === "GDD comparison"));
+assert.ok(
+  settings.sections[1].cards.some((c) => c.type === "heading" && c.heading === "GDD since last PGR, compared"),
+);
+// The explanation says which application the totals run from.
+const explanation = settings.sections[1].cards.find((c) => c.type === "markdown");
+assert.match(explanation.content, /state_attr\('sensor\.lawn_front_gdd_since_pgr', 'last_application'\)/);
+assert.match(explanation.content, /Totals since the last PGR application/);
 assert.deepEqual(headingsOf(settings), ["Back yard", "Front lawn", "Lawns and products"]);
 assert.deepEqual(
   settings.sections[1].cards[1].entities.map((r) => r.entity),

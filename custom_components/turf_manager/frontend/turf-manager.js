@@ -298,20 +298,29 @@ function comparisonCards(e) {
   const compare = (key, name) =>
     tile(e[`sensor:${key}`], name, { state_content: ["state", "difference"] });
   const tiles = [
-    compare("gdd_since_pgr_mean", "Main sensor · daily mean"),
-    compare("gdd_since_pgr_minmax", "Main sensor · min/max"),
-    compare("gdd_since_pgr_fallback", "Fallback sensor · daily mean"),
-    compare("gdd_since_pgr_fallback_minmax", "Fallback sensor · min/max"),
+    compare("gdd_since_pgr_mean", "Main sensor, daily-mean method"),
+    compare("gdd_since_pgr_minmax", "Main sensor, min/max method"),
+    compare("gdd_since_pgr_fallback", "Fallback sensor, daily-mean method"),
+    compare("gdd_since_pgr_fallback_minmax", "Fallback sensor, min/max method"),
   ].filter(Boolean);
   if (!tiles.length) return [];
+  const main = e["sensor:gdd_since_pgr"];
+  const since = main
+    ? `{% set d = state_attr('${main}', 'last_application') %}` +
+      "{% if d %}**Totals since the last PGR application, {{ as_datetime(d).strftime('%a %-d %b') }}** " +
+      "{% set n = state_attr('" + main + "', 'days_since_application') %}" +
+      "({{ n }} day{{ '' if n == 1 else 's' }}, main GDD " +
+      "{{ states('" + main + "') }}).{% else %}**No PGR recorded yet**, so there's nothing to total.{% endif %} "
+    : "";
   return [
-    heading("GDD comparison", "mdi:compare-horizontal", "subtitle"),
+    heading("GDD since last PGR, compared", "mdi:compare-horizontal", "subtitle"),
     {
       type: "markdown",
       content:
-        "GDD since the last PGR counted different ways. *Daily mean* averages every reading " +
-        "through the day; *min/max* is (high + low) ÷ 2. The second figure is the difference " +
-        "from your main GDD.",
+        since +
+        "Each total is counted from that application to now. *Daily mean* averages every " +
+        "reading through each day; *min/max* uses (high + low) ÷ 2. The second figure is the " +
+        "difference from your main GDD.",
       ...FULL,
     },
     ...tiles,
